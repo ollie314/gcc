@@ -1,3 +1,225 @@
+2016-04-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/69703
+	* src/c++11/codecvt.cc (__codecvt_utf8_base<char16_t>::do_in)):
+	Override endianness bit in mode.
+	* testsuite/22_locale/codecvt/codecvt_utf8/69703.cc: New test.
+	* testsuite/22_locale/codecvt/codecvt_utf8_utf16/66855.cc: Test
+	that little_endian mode is ignored.
+	* testsuite/experimental/filesystem/path/native/string.cc: New test.
+
+	PR libstdc++/70609
+	* src/filesystem/ops.cc (close_fd): New function.
+	(do_copy_file): Set permissions before copying file contents. Check
+	result of closing file descriptors. Don't copy streambuf when file
+	is empty.
+	(copy(const path&, const path&, copy_options, error_code&)): Use
+	lstat for source file when copy_symlinks is set.
+	* testsuite/experimental/filesystem/operations/copy.cc: Test copy().
+
+	* include/experimental/bits/fs_fwd.h (operator&, operator|, operator^,
+	operator~ operator&=, operator|=, operator^=): Add noexcept to
+	overloaded operators for copy_options, perms and directory_options.
+	* src/filesystem/ops.cc (make_file_type, make_file_status,
+	is_not_found_errno, file_time): Add noexcept.
+
+2016-04-19  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* include/bits/c++14_warning.h: Do not refer C++14 as experimental.
+
+2016-04-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/41759
+	* include/bits/random.h: Reword static assertion messages to state
+	positive conditions.
+	* include/bits/random.tcc: Likewise.
+	* include/bits/uniform_int_dist.h: Likewise.
+	* testsuite/26_numerics/random/pr60037-neg.cc: Adjust dg-error
+	patterns.
+
+	* include/std/function (_Bind, _Bind_result): Remove unused typedefs.
+
+	* config/cpu/sh/atomicity.h: Fix typo in comment.
+
+	PR libstdc++/70294
+	* include/std/thread (operator<, operator==): Move definitions to
+	namespace-scope.
+	* testsuite/30_threads/thread/id/70294.cc: New test.
+
+	* testsuite/18_support/bad_exception/23591_thread-1.c: Add
+	-Wno-pedantic to dg-options.
+	* testsuite/20_util/align/2.cc: Use type as operand of alignof.
+	* testsuite/20_util/is_floating_point/value.cc: Add -Wno-pedantic
+	to dg-options.
+	* testsuite/20_util/specialized_algorithms/uninitialized_fill/32158.cc:
+	Remove extra semi-colon.
+	* testsuite/23_containers/array/tuple_interface/tuple_element.cc:
+	Always supply second argument to static_assert.
+	* testsuite/25_algorithms/lower_bound/no_operator_ne.cc: Remove extra
+	semi-colon.
+	* testsuite/26_numerics/complex/c99.cc: Add -Wno-pedantic to
+	dg-options.
+	* testsuite/26_numerics/complex/literals/values.cc: Likewise.
+	* testsuite/29_atomics/atomic/60695.cc: Likewise.
+	* testsuite/29_atomics/atomic/62259.cc: use __alignof__ instead of
+	alignof when operand is an object not a type.
+	* testsuite/decimal/ctor.cc: Add -Wno-pedantic to dg-options.
+	* testsuite/decimal/make-decimal.cc: Likewise.
+	* testsuite/experimental/type_traits/value.cc: Always supply second
+	argument to static_assert.
+	* testsuite/util/testsuite_common_types.h: Use __extension__ for
+	__int128 types.
+
+	* testsuite/experimental/type_erased_allocator/1.cc: Don't include
+	internal header.
+	* testsuite/experimental/type_erased_allocator/1_neg.cc: Likewise.
+	* testsuite/experimental/type_erased_allocator/2.cc: Likewise.
+	* testsuite/experimental/type_erased_allocator/uses_allocator.cc:
+	Likewise. Add licence and change to compile-only test.
+
+	* include/bits/locale_facets.h (ctype::do_narrow): Add attribute to
+	unused parameter.
+	* include/bits/regex_automaton.h (_NFA::_M_insert_alt): Likewise.
+
+	* include/ext/string_conversions.h (__stoa): Avoid -Wsign-compare
+	warnings.
+
+2016-04-17  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* include/bits/specfun.h: Trivial comment misspelling.
+
+2016-04-14  Jason Merrill  <jason@redhat.com>
+
+	Revert Jonathan's empty ABI change from yesterday.
+
+2016-04-13  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/69517
+	* testsuite/25_algorithms/rotate/moveable2.cc: Make sure VLA
+	upper bound is positive.
+
+2016-04-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/c++config (_GLIBCXX_BEGIN_NAMESPACE_EMPTY_TYPES,
+	_GLIBCXX_END_NAMESPACE_EMPTY_TYPES, _GLIBCXX_ABI_TAG_EMPTY): Define.
+	* include/bits/hashtable.h (_Hashtable::_M_emplace): Change signatures
+	of functions taking empty structs by value. Add a template parameter
+	to overloads without hints. Rename overloads with hints to
+	_M_emplace_hint.
+	(_Hashtable::_M_erase(true_type, const_iterator),
+	_Hashtable::_M_erase(false_type, const_iterator)): Change signatures
+	by reordering parameters.
+	* include/bits/hashtable_policy.h (_Insert::insert): Adjust to call
+	_M_emplace_hint instead of _M_emplace.
+	* include/bits/shared_ptr.h (shared_ptr(_Tp1*, _Deleter, _Alloc),
+	shared_ptr(nullptr_t, _Deleter, _Alloc)): Use _GLIBCXX_ABI_TAG_EMPTY.
+	* include/bits/shared_ptr_base.h (_Sp_counted_deleter, __shared_count,
+	__shared_ptr): Likewise.
+	* include/bits/stl_algo.h (replace_if): Likewise.
+	* include/bits/stl_pair.h (piecewise_construct_t,
+	piecewise_construct): Use _GLIBCXX_BEGIN_NAMESPACE_EMPTY_TYPES.
+	* include/bits/uses_allocator.h (allocator_arg_t, allocator_arg,
+	__uses_alloc0): Likewise.
+	* include/ext/pb_ds/assoc_container.hpp (basic_hash_table): Likewise.
+	* testsuite/20_util/scoped_allocator/69293_neg.cc: Adjust dg-error.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: Likewise.
+	* testsuite/20_util/uses_allocator/69293_neg.cc: Likewise.
+	* testsuite/20_util/uses_allocator/cons_neg.cc: Likewise.
+	* testsuite/ext/profile/mutex_extensions_neg.cc: Likewise.
+
+2016-04-12  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Document C++17/TR29124 C++ Special Math Functions.
+	* include/bits/specfun.h: Add Doxygen markup.
+
+2016-04-07  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/30_threads/thread/70503.cc: Adjust from xfail to pass.
+
+2016-04-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* src/Makefile.am (libstdc++-symbols.ver): Remove useless /dev/null.
+	* src/Makefile.in: Regenerate.
+
+2016-04-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/70554
+	* acinclude.m4 (GLIBCXX_ENABLE_ATOMIC_BUILTINS): Don't test
+	__atomic_fetch_add for bool.
+	* configure: Regenerate.
+
+	* testsuite/30_threads/thread/70503.cc: Require -static to work.
+
+	PR libstdc++/70503
+	* src/c++11/thread.cc (execute_native_thread_routine,
+	execute_native_thread_routine_compat): Give internal linkage.
+	* testsuite/30_threads/thread/70503.cc: New test.
+
+2016-04-05  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR libstdc++/70437
+	* include/bits/stl_pair.h (_ConstructiblePair,
+	_ImplicitlyConvertiblePair, _MoveConstructiblePair,
+	_ImplicitlyMoveConvertiblePair): Add shortcut conditions
+	for same-type cases.
+	* testsuite/20_util/pair/70437.cc: New.
+
+2016-03-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/69945
+	* config/abi/pre/gnu.ver: Add new symbol.
+	* libsupc++/eh_alloc.cc (__gnu_cxx::__freeres): Define.
+	* testsuite/18_support/free_eh_pool.cc: New test.
+
+2016-03-23  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* include/Makefile.am (install-freestanding-headers): Add
+	concept_check.h and move.h to the installed headers.
+	* include/Makefile.in: Regenerated.
+	* include/bits/concept_check.h: Ignore _GLIBCXX_CONCEPT_CHECKS for
+	freestanding implementations.
+	* doc/xml/manual/using.xml (_GLIBCXX_CONCEPT_CHECKS): Mention
+	that this macro has no effect for freestanding implementations.
+	* doc/html/manual/using_macros.html: Likewise.
+
+2016-02-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/69939
+	* include/experimental/tuple (__apply_impl): Qualify get and forward.
+
+2016-02-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/using.xml: Document __STDCPP_WANT_MATH_SPEC_FUNCS__.
+	* doc/html/*: Regenerate.
+
+	PR libstdc++/69893
+	* include/tr1/cmath (acosh, asinh, atanh, cbrt, copysign, erf, erfc,
+	exp2, expm1, fdim, fma, fmax, fmin, hypot, ilogb, lgamma, llrint,
+	llround, log1p, log2, logb, lrint, lround, nan, nearbyint, nextafter,
+	nexttoward, remainder, remquo, rint, round, scalbln, scalbn, tgamma,
+	trunc) [__cplusplus >= 201103L]: Import from namespace std.
+	(fabs) [__cplusplus < 201103L]: Import from namespace std.
+	* include/tr1/complex (acosh, asinh, atanh) [__cplusplus >= 201103L]:
+	Likewise.
+	* testsuite/tr1/headers/c++200x/complex.cc: Add std::fabs to global
+	namespace before including TR1 headers.
+	* testsuite/tr1/headers/c++200x/math.cc: New test.
+
+2016-02-23  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR libstdc++/69881
+	* include/c_global/cstdarg: Undefine __need___va_list.
+	* include/c_global/cstddef: Undefine all kinds of __need_*.
+
+2016-02-16  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/69794
+	* include/bits/regex_scanner.h: Add different special character
+	sets for grep and egrep regex.
+	* include/bits/regex_scanner.tcc: Use _M_spec_char more uniformly.
+	* testsuite/28_regex/regression.cc: Add new testcase.
+
 2016-02-08  Jonathan Wakely  <jwakely@redhat.com>
 
 	* acinclude.m4 (GLIBCXX_CHECK_MATH11_PROTO): Remove accidentally

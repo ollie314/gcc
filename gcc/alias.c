@@ -827,7 +827,7 @@ get_alias_set (tree t)
 
   /* We can not give up with -fno-strict-aliasing because we need to build
      proper type representation for possible functions which are build with
-     -fstirct-aliasing.  */
+     -fstrict-aliasing.  */
 
   /* return 0 if this or its type is an error.  */
   if (t == error_mark_node
@@ -3056,6 +3056,20 @@ output_dependence (const_rtx mem, const_rtx x)
   return write_dependence_p (mem, x, VOIDmode, NULL_RTX,
 			     /*mem_canonicalized=*/false,
 			     /*x_canonicalized*/false, /*writep=*/true);
+}
+
+/* Likewise, but we already have a canonicalized MEM, and X_ADDR for X.
+   Also, consider X in X_MODE (which might be from an enclosing
+   STRICT_LOW_PART / ZERO_EXTRACT).
+   If MEM_CANONICALIZED is true, MEM is canonicalized.  */
+
+int
+canon_output_dependence (const_rtx mem, bool mem_canonicalized,
+			 const_rtx x, machine_mode x_mode, rtx x_addr)
+{
+  return write_dependence_p (mem, x, x_mode, x_addr,
+			     mem_canonicalized, /*x_canonicalized=*/true,
+			     /*writep=*/true);
 }
 
 

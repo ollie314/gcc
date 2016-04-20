@@ -2358,6 +2358,35 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   DECL_ATTRIBUTES (newdecl)
     = targetm.merge_decl_attributes (olddecl, newdecl);
 
+  /* For typedefs use the old type, as the new type's DECL_NAME points
+     at newdecl, which will be ggc_freed.  */
+  if (TREE_CODE (newdecl) == TYPE_DECL)
+    {
+      /* But NEWTYPE might have an attribute, honor that.  */
+      tree tem = newtype;
+      newtype = oldtype;
+
+      if (TYPE_USER_ALIGN (tem))
+	{
+	  if (TYPE_ALIGN (tem) > TYPE_ALIGN (newtype))
+	    SET_TYPE_ALIGN (newtype, TYPE_ALIGN (tem));
+	  TYPE_USER_ALIGN (newtype) = true;
+	}
+
+      /* And remove the new type from the variants list.  */
+      if (TYPE_NAME (TREE_TYPE (newdecl)) == newdecl)
+	{
+	  tree remove = TREE_TYPE (newdecl);
+	  for (tree t = TYPE_MAIN_VARIANT (remove); ;
+	       t = TYPE_NEXT_VARIANT (t))
+	    if (TYPE_NEXT_VARIANT (t) == remove)
+	      {
+		TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (remove);
+		break;
+	      }
+	}
+    }
+
   /* Merge the data types specified in the two decls.  */
   TREE_TYPE (newdecl)
     = TREE_TYPE (olddecl)
@@ -2381,7 +2410,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       DECL_MODE (newdecl) = DECL_MODE (olddecl);
       if (DECL_ALIGN (olddecl) > DECL_ALIGN (newdecl))
 	{
-	  DECL_ALIGN (newdecl) = DECL_ALIGN (olddecl);
+	  SET_DECL_ALIGN (newdecl, DECL_ALIGN (olddecl));
 	  DECL_USER_ALIGN (newdecl) |= DECL_USER_ALIGN (olddecl);
 	}
     }
@@ -4743,7 +4772,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	      struct c_binding *b_ext = I_SYMBOL_BINDING (DECL_NAME (decl));
 	      while (b_ext && !B_IN_EXTERNAL_SCOPE (b_ext))
 		b_ext = b_ext->shadowed;
-	      if (b_ext)
+	      if (b_ext && TREE_CODE (decl) == TREE_CODE (b_ext->decl))
 		{
 		  if (b_ext->u.type && comptypes (b_ext->u.type, type))
 		    b_ext->u.type = composite_type (b_ext->u.type, type);
@@ -6734,7 +6763,7 @@ grokdeclarator (const struct c_declarator *declarator,
     /* Apply _Alignas specifiers.  */
     if (alignas_align)
       {
-	DECL_ALIGN (decl) = alignas_align * BITS_PER_UNIT;
+	SET_DECL_ALIGN (decl, alignas_align * BITS_PER_UNIT);
 	DECL_USER_ALIGN (decl) = 1;
       }
 
@@ -7050,25 +7079,28 @@ get_parm_info (bool ellipsis, tree expr)
 	  vec_safe_push (tags, tag);
 	  break;
 
+	case FUNCTION_DECL:
+	  /*  FUNCTION_DECLs appear when there is an implicit function
+	      declaration in the parameter list.  */
+	  gcc_assert (b->nested);
+	  goto set_shadowed;
+
 	case CONST_DECL:
 	case TYPE_DECL:
-	case FUNCTION_DECL:
 	  /* CONST_DECLs appear here when we have an embedded enum,
 	     and TYPE_DECLs appear here when we have an embedded struct
 	     or union.  No warnings for this - we already warned about the
-	     type itself.  FUNCTION_DECLs appear when there is an implicit
-	     function declaration in the parameter list.  */
+	     type itself.  */
 
 	  /* When we reinsert this decl in the function body, we need
 	     to reconstruct whether it was marked as nested.  */
-	  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
-		      ? b->nested
-		      : !b->nested);
+	  gcc_assert (!b->nested);
 	  DECL_CHAIN (decl) = others;
 	  others = decl;
 	  /* fall through */
 
 	case ERROR_MARK:
+	set_shadowed:
 	  /* error_mark_node appears here when we have an undeclared
 	     variable.  Just throw it away.  */
 	  if (b->id)
@@ -7173,7 +7205,7 @@ parser_xref_tag (location_t loc, enum tree_code code, tree name)
       /* Give the type a default layout like unsigned int
 	 to avoid crashing if it does not get defined.  */
       SET_TYPE_MODE (ref, TYPE_MODE (unsigned_type_node));
-      TYPE_ALIGN (ref) = TYPE_ALIGN (unsigned_type_node);
+      SET_TYPE_ALIGN (ref, TYPE_ALIGN (unsigned_type_node));
       TYPE_USER_ALIGN (ref) = 0;
       TYPE_UNSIGNED (ref) = 1;
       TYPE_PRECISION (ref) = TYPE_PRECISION (unsigned_type_node);
@@ -8069,7 +8101,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
   TYPE_MIN_VALUE (enumtype) = TYPE_MIN_VALUE (tem);
   TYPE_MAX_VALUE (enumtype) = TYPE_MAX_VALUE (tem);
   TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (tem);
-  TYPE_ALIGN (enumtype) = TYPE_ALIGN (tem);
+  SET_TYPE_ALIGN (enumtype, TYPE_ALIGN (tem));
   TYPE_SIZE (enumtype) = 0;
   TYPE_PRECISION (enumtype) = TYPE_PRECISION (tem);
 
@@ -8131,7 +8163,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
       TYPE_SIZE_UNIT (tem) = TYPE_SIZE_UNIT (enumtype);
       SET_TYPE_MODE (tem, TYPE_MODE (enumtype));
       TYPE_PRECISION (tem) = TYPE_PRECISION (enumtype);
-      TYPE_ALIGN (tem) = TYPE_ALIGN (enumtype);
+      SET_TYPE_ALIGN (tem, TYPE_ALIGN (enumtype));
       TYPE_USER_ALIGN (tem) = TYPE_USER_ALIGN (enumtype);
       TYPE_UNSIGNED (tem) = TYPE_UNSIGNED (enumtype);
       TYPE_LANG_SPECIFIC (tem) = TYPE_LANG_SPECIFIC (enumtype);

@@ -1673,7 +1673,7 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
     }
   else
     {
-      off = build_int_cst (reference_alias_ptr_type (base),
+      off = build_int_cst (reference_alias_ptr_type (prev_base),
 			   base_offset + offset / BITS_PER_UNIT);
       base = build_fold_addr_expr (unshare_expr (base));
     }
@@ -2132,6 +2132,7 @@ create_access_replacement (struct access *access)
       bool fail = false;
 
       DECL_NAME (repl) = get_identifier (pretty_name);
+      DECL_NAMELESS (repl) = 1;
       obstack_free (&name_obstack, pretty_name);
 
       /* Get rid of any SSA_NAMEs embedded in debug_expr,
@@ -2427,7 +2428,8 @@ analyze_access_subtree (struct access *root, struct access *parent,
 
   if (!hole || root->grp_total_scalarization)
     root->grp_covered = 1;
-  else if (root->grp_write || TREE_CODE (root->base) == PARM_DECL)
+  else if (root->grp_write || TREE_CODE (root->base) == PARM_DECL
+	   || constant_decl_p (root->base))
     root->grp_unscalarized_data = 1; /* not covered and written to */
   return sth_created;
 }
@@ -2742,6 +2744,9 @@ generate_subtree_copies (struct access *access, tree agg,
 			 gimple_stmt_iterator *gsi, bool write,
 			 bool insert_after, location_t loc)
 {
+  /* Never write anything into constant pool decls.  See PR70602.  */
+  if (!write && constant_decl_p (agg))
+    return;
   do
     {
       if (chunk_size && access->offset >= start_offset + chunk_size)
@@ -3339,6 +3344,7 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
     }
   else if (racc
 	   && !racc->grp_unscalarized_data
+	   && !racc->grp_unscalarizable_region
 	   && TREE_CODE (lhs) == SSA_NAME
 	   && !access_has_replacements_p (racc))
     {
@@ -3503,7 +3509,8 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
       else
 	{
 	  if (access_has_children_p (racc)
-	      && !racc->grp_unscalarized_data)
+	      && !racc->grp_unscalarized_data
+	      && TREE_CODE (lhs) != SSA_NAME)
 	    {
 	      if (dump_file)
 		{
@@ -4698,6 +4705,7 @@ get_replaced_param_substitute (struct ipa_parm_adjustment *adj)
 
       repl = create_tmp_reg (TREE_TYPE (adj->base), "ISR");
       DECL_NAME (repl) = get_identifier (pretty_name);
+      DECL_NAMELESS (repl) = 1;
       obstack_free (&name_obstack, pretty_name);
 
       adj->new_ssa_base = repl;
@@ -4756,6 +4764,8 @@ replace_removed_params_ssa_names (tree old_name, gimple *stmt,
 
   repl = get_replaced_param_substitute (adj);
   new_name = make_ssa_name (repl, stmt);
+  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_name)
+    = SSA_NAME_OCCURS_IN_ABNORMAL_PHI (old_name);
 
   if (dump_file)
     {

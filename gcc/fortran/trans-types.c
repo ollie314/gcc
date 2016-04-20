@@ -2275,7 +2275,7 @@ gfc_add_field_to_struct (tree context, tree name, tree type, tree **chain)
   tree decl = gfc_add_field_to_struct_1 (context, name, type, chain);
 
   DECL_INITIAL (decl) = 0;
-  DECL_ALIGN (decl) = 0;
+  SET_DECL_ALIGN (decl, 0);
   DECL_USER_ALIGN (decl) = 0;
 
   return decl;
@@ -2370,7 +2370,8 @@ gfc_get_derived_type (gfc_symbol * derived)
   if (derived->attr.unlimited_polymorphic
       || (flag_coarray == GFC_FCOARRAY_LIB
 	  && derived->from_intmod == INTMOD_ISO_FORTRAN_ENV
-	  && derived->intmod_sym_id == ISOFORTRAN_LOCK_TYPE))
+	  && (derived->intmod_sym_id == ISOFORTRAN_LOCK_TYPE
+	      || derived->intmod_sym_id == ISOFORTRAN_EVENT_TYPE)))
     return ptr_type_node;
 
   if (flag_coarray != GFC_FCOARRAY_LIB

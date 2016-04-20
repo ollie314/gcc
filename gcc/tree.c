@@ -1020,11 +1020,11 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 	{
 	  if (code == FUNCTION_DECL)
 	    {
-	      DECL_ALIGN (t) = FUNCTION_BOUNDARY;
+	      SET_DECL_ALIGN (t, FUNCTION_BOUNDARY);
 	      DECL_MODE (t) = FUNCTION_MODE;
 	    }
 	  else
-	    DECL_ALIGN (t) = 1;
+	    SET_DECL_ALIGN (t, 1);
 	}
       DECL_SOURCE_LOCATION (t) = input_location;
       if (TREE_CODE (t) == DEBUG_EXPR_DECL)
@@ -1041,7 +1041,7 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 
     case tcc_type:
       TYPE_UID (t) = next_type_uid++;
-      TYPE_ALIGN (t) = BITS_PER_UNIT;
+      SET_TYPE_ALIGN (t, BITS_PER_UNIT);
       TYPE_USER_ALIGN (t) = 0;
       TYPE_MAIN_VARIANT (t) = t;
       TYPE_CANONICAL (t) = t;
@@ -1114,7 +1114,7 @@ free_node (tree node)
     {
       tree_code_counts[(int) TREE_CODE (node)]--;
       tree_node_counts[(int) t_kind]--;
-      tree_node_sizes[(int) t_kind] -= tree_code_size (TREE_CODE (node));
+      tree_node_sizes[(int) t_kind] -= tree_size (node);
     }
   if (CODE_CONTAINS_STRUCT (code, TS_CONSTRUCTOR))
     vec_free (CONSTRUCTOR_ELTS (node));
@@ -1749,7 +1749,7 @@ build_vector_from_ctor (tree type, vec<constructor_elt, va_gc> *v)
       else
 	vec[pos++] = value;
     }
-  for (; idx < TYPE_VECTOR_SUBPARTS (type); ++idx)
+  while (pos < TYPE_VECTOR_SUBPARTS (type))
     vec[pos++] = build_zero_cst (TREE_TYPE (type));
 
   return build_vector (type, vec);
@@ -5329,6 +5329,7 @@ need_assembler_name_p (tree decl)
       && TREE_CODE (decl) == TYPE_DECL
       && DECL_NAME (decl)
       && decl == TYPE_NAME (TREE_TYPE (decl))
+      && TYPE_MAIN_VARIANT (TREE_TYPE (decl)) == TREE_TYPE (decl)
       && !TYPE_ARTIFICIAL (TREE_TYPE (decl))
       && (type_with_linkage_p (TREE_TYPE (decl))
 	  || TREE_CODE (TREE_TYPE (decl)) == INTEGER_TYPE)
@@ -5472,8 +5473,13 @@ free_lang_data_in_decl (tree decl)
 	  || (decl_function_context (decl) && !TREE_STATIC (decl)))
 	DECL_INITIAL (decl) = NULL_TREE;
     }
-  else if (TREE_CODE (decl) == TYPE_DECL
-	   || TREE_CODE (decl) == FIELD_DECL)
+  else if (TREE_CODE (decl) == TYPE_DECL)
+    {
+      DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (decl) = 0;
+      DECL_INITIAL (decl) = NULL_TREE;
+    }
+  else if (TREE_CODE (decl) == FIELD_DECL)
     DECL_INITIAL (decl) = NULL_TREE;
   else if (TREE_CODE (decl) == TRANSLATION_UNIT_DECL
            && DECL_INITIAL (decl)
@@ -6640,7 +6646,7 @@ build_qualified_type (tree type, int type_quals)
 	      /* Ensure the alignment of this type is compatible with
 		 the required alignment of the atomic type.  */
 	      if (TYPE_ALIGN (atomic_type) > TYPE_ALIGN (t))
-		TYPE_ALIGN (t) = TYPE_ALIGN (atomic_type);
+		SET_TYPE_ALIGN (t, TYPE_ALIGN (atomic_type));
 	    }
 	}
 
@@ -6679,7 +6685,7 @@ build_aligned_type (tree type, unsigned int align)
       return t;
 
   t = build_variant_type_copy (type);
-  TYPE_ALIGN (t) = align;
+  SET_TYPE_ALIGN (t, align);
 
   return t;
 }
@@ -8129,7 +8135,7 @@ build_range_type_1 (tree type, tree lowval, tree highval, bool shared)
   SET_TYPE_MODE (itype, TYPE_MODE (type));
   TYPE_SIZE (itype) = TYPE_SIZE (type);
   TYPE_SIZE_UNIT (itype) = TYPE_SIZE_UNIT (type);
-  TYPE_ALIGN (itype) = TYPE_ALIGN (type);
+  SET_TYPE_ALIGN (itype, TYPE_ALIGN (type));
   TYPE_USER_ALIGN (itype) = TYPE_USER_ALIGN (type);
 
   if (!shared)
@@ -10030,7 +10036,7 @@ build_atomic_base (tree type, unsigned int align)
   set_type_quals (t, TYPE_QUAL_ATOMIC);
 
   if (align)
-    TYPE_ALIGN (t) = align;
+    SET_TYPE_ALIGN (t, align);
 
   return t;
 }
@@ -10179,7 +10185,7 @@ build_common_tree_nodes (bool signed_char)
 
   /* We are not going to have real types in C with less than byte alignment,
      so we might as well not have any types that claim to have it.  */
-  TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;
+  SET_TYPE_ALIGN (void_type_node, BITS_PER_UNIT);
   TYPE_USER_ALIGN (void_type_node) = 0;
 
   void_node = make_node (VOID_CST);
@@ -12952,8 +12958,10 @@ array_at_struct_end_p (tree ref)
     }
 
   /* If the reference is based on a declared entity, the size of the array
-     is constrained by its given domain.  */
-  if (DECL_P (ref))
+     is constrained by its given domain.  (Do not trust commons PR/69368).  */
+  if (DECL_P (ref)
+      && !(flag_unconstrained_commons
+	   && TREE_CODE (ref) == VAR_DECL && DECL_COMMON (ref)))
     return false;
 
   return true;
@@ -13576,7 +13584,9 @@ verify_type (const_tree t)
       debug_tree (ct);
       error_found = true;
     }
-  if (TYPE_MAIN_VARIANT (t) == t && ct && TYPE_MAIN_VARIANT (ct) != ct)
+  /* FIXME: this is violated by the C++ FE as discussed in PR70029, when
+     FUNCTION_*_QUALIFIED flags are set.  */
+  if (0 && TYPE_MAIN_VARIANT (t) == t && ct && TYPE_MAIN_VARIANT (ct) != ct)
    {
       error ("TYPE_CANONICAL of main variant is not main variant");
       debug_tree (ct);

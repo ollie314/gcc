@@ -1287,12 +1287,68 @@ symtab_node::make_decl_local (void)
   SYMBOL_REF_WEAK (symbol) = DECL_WEAK (decl);
 }
 
+/* Copy visibility from N.
+   This is useful when THIS becomes a transparent alias of N.  */
+
+void
+symtab_node::copy_visibility_from (symtab_node *n)
+{
+  gcc_checking_assert (n->weakref == weakref);
+
+  ipa_ref *ref;
+  for (unsigned i = 0; iterate_direct_aliases (i, ref); i++)
+    {
+      struct symtab_node *alias = ref->referring;
+      if (alias->transparent_alias)
+	alias->copy_visibility_from (n);
+    }
+
+  if (TREE_CODE (decl) == VAR_DECL)
+    {
+      DECL_COMMON (decl) = DECL_COMMON (n->decl);
+      /* ADDRESSABLE flag is not defined for public symbols.  */
+      if (TREE_PUBLIC (decl) && !TREE_PUBLIC (n->decl))
+        TREE_ADDRESSABLE (decl) = 1;
+      TREE_STATIC (decl) = TREE_STATIC (n->decl);
+    }
+  else gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
+
+  DECL_COMDAT (decl) = DECL_COMDAT (n->decl);
+  DECL_WEAK (decl) = DECL_WEAK (n->decl);
+  DECL_EXTERNAL (decl) = DECL_EXTERNAL (n->decl);
+  DECL_VISIBILITY_SPECIFIED (decl) = DECL_VISIBILITY_SPECIFIED (n->decl);
+  DECL_VISIBILITY (decl) = DECL_VISIBILITY (n->decl);
+  TREE_PUBLIC (decl) = TREE_PUBLIC (n->decl);
+  DECL_DLLIMPORT_P (decl) = DECL_DLLIMPORT_P (n->decl);
+  resolution = n->resolution;
+  set_comdat_group (n->get_comdat_group ());
+  call_for_symbol_and_aliases (symtab_node::set_section,
+			     const_cast<char *>(n->get_section ()), true);
+  externally_visible = n->externally_visible;
+  if (!DECL_RTL_SET_P (decl))
+    return;
+
+  /* Update rtl flags.  */
+  make_decl_rtl (decl);
+
+  rtx rtl = DECL_RTL (decl);
+  if (!MEM_P (rtl))
+    return;
+
+  rtx symbol = XEXP (rtl, 0);
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return;
+
+  SYMBOL_REF_WEAK (symbol) = DECL_WEAK (decl);
+}
+
 /* Walk the alias chain to return the symbol NODE is alias of.
    If NODE is not an alias, return NODE.
    Assumes NODE is known to be alias.  */
 
 symtab_node *
-symtab_node::ultimate_alias_target_1 (enum availability *availability)
+symtab_node::ultimate_alias_target_1 (enum availability *availability,
+				      symtab_node *ref)
 {
   bool transparent_p = false;
 
@@ -1313,7 +1369,7 @@ symtab_node::ultimate_alias_target_1 (enum availability *availability)
     {
       transparent_p = transparent_alias;
       if (!transparent_p)
-	*availability = get_availability ();
+	*availability = get_availability (ref);
       else
 	*availability = AVAIL_NOT_AVAILABLE;
     }
@@ -1328,7 +1384,7 @@ symtab_node::ultimate_alias_target_1 (enum availability *availability)
 	  if (!availability || (!transparent_p && node->analyzed))
 	    ;
 	  else if (node->analyzed && !node->transparent_alias)
-	    *availability = node->get_availability ();
+	    *availability = node->get_availability (ref);
 	  else
 	    *availability = AVAIL_NOT_AVAILABLE;
 	  return node;
@@ -1336,7 +1392,7 @@ symtab_node::ultimate_alias_target_1 (enum availability *availability)
       if (node && availability && transparent_p
 	  && node->transparent_alias)
 	{
-	  *availability = node->get_availability ();
+	  *availability = node->get_availability (ref);
 	  transparent_p = false;
 	}
     }
@@ -2097,7 +2153,7 @@ increase_alignment_1 (symtab_node *n, void *v)
   if (DECL_ALIGN (n->decl) < align
       && n->can_increase_alignment_p ())
     {
-      DECL_ALIGN (n->decl) = align;
+      SET_DECL_ALIGN (n->decl, align);
       DECL_USER_ALIGN (n->decl) = 1;
     }
   return false;
@@ -2136,4 +2192,73 @@ symtab_node::definition_alignment ()
   gcc_assert (!alias);
   call_for_symbol_and_aliases (get_alignment_1, &align, true);
   return align;
+}
+
+/* Return symbol used to separate symbol name from suffix.  */
+
+char 
+symbol_table::symbol_suffix_separator ()
+{
+#ifndef NO_DOT_IN_LABEL
+  return '.';
+#elif !defined NO_DOLLAR_IN_LABEL
+  return '$';
+#else
+  return '_';
+#endif
+}
+
+/* Return true when references to this symbol from REF must bind to current
+   definition in final executable.  */
+
+bool
+symtab_node::binds_to_current_def_p (symtab_node *ref)
+{
+  if (!definition)
+    return false;
+  if (decl_binds_to_current_def_p (decl))
+    return true;
+
+  /* Inline clones always binds locally.  */
+  cgraph_node *cnode = dyn_cast <cgraph_node *> (this);
+  if (cnode && cnode->global.inlined_to)
+    return true;
+
+  if (DECL_EXTERNAL (decl))
+    return false;
+
+  if (!externally_visible)
+    debug ();
+  gcc_assert (externally_visible);
+
+  if (ref)
+    {
+      cgraph_node *cref = dyn_cast <cgraph_node *> (ref);
+      if (cref)
+	ref = cref->global.inlined_to;
+    }
+
+  /* If this is a reference from symbol itself and there are no aliases, we
+     may be sure that the symbol was not interposed by soemthing else because
+     the symbol itself would be unreachable otherwise.  This is important
+     to optimize recursive functions well.
+
+     This assumption may be broken by inlining: if symbol is interposable
+     but the body is available (i.e. declared inline), inliner may make
+     the body reachable even with interposition.  */
+  if (this == ref && !has_aliases_p ()
+      && (!cnode
+	  || symtab->state >= IPA_SSA_AFTER_INLINING
+	  || get_availability () >= AVAIL_INTERPOSABLE))
+    return true;
+
+
+  /* References within one comdat group are always bound in a group.  */
+  if (ref
+      && symtab->state >= IPA_SSA_AFTER_INLINING
+      && get_comdat_group ()
+      && get_comdat_group () == ref->get_comdat_group ())
+    return true;
+
+  return false;
 }

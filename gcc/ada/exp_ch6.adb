@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -59,6 +59,7 @@ with Sem;       use Sem;
 with Sem_Aux;   use Sem_Aux;
 with Sem_Ch6;   use Sem_Ch6;
 with Sem_Ch8;   use Sem_Ch8;
+with Sem_Ch12;  use Sem_Ch12;
 with Sem_Ch13;  use Sem_Ch13;
 with Sem_Dim;   use Sem_Dim;
 with Sem_Disp;  use Sem_Disp;
@@ -2073,10 +2074,13 @@ package body Exp_Ch6 is
 
       if not Is_Empty_List (Post_Call) then
 
-         --  Cases where the call is not a member of a statement list
+         --  Cases where the call is not a member of a statement list.
+         --  This includes the case where the call is an actual in another
+         --  function call or indexing, i.e. an expression context as well.
 
-         if not Is_List_Member (N) then
-
+         if not Is_List_Member (N)
+           or else Nkind_In (Parent (N), N_Function_Call, N_Indexed_Component)
+         then
             --  In Ada 2012 the call may be a function call in an expression
             --  (since OUT and IN OUT parameters are now allowed for such
             --  calls). The write-back of (in)-out parameters is handled
@@ -3706,7 +3710,7 @@ package body Exp_Ch6 is
                  Make_Explicit_Dereference (Loc,
                    Prefix => Nam);
 
-               if Present (Parameter_Associations (Call_Node))  then
+               if Present (Parameter_Associations (Call_Node)) then
                   Parm := Parameter_Associations (Call_Node);
                else
                   Parm := New_List;
@@ -3789,7 +3793,7 @@ package body Exp_Ch6 is
                 (RTE (RE_Address), Relocate_Node (First_Actual (Call_Node))));
             return;
 
-         elsif Is_Null_Procedure (Subp)  then
+         elsif Is_Null_Procedure (Subp) then
             Rewrite (Call_Node, Make_Null_Statement (Loc));
             return;
          end if;
@@ -3862,6 +3866,14 @@ package body Exp_Ch6 is
                     and then In_Package_Body
                   then
                      Must_Inline := not In_Extended_Main_Source_Unit (Subp);
+
+                  --  Inline calls to _postconditions when generating C code
+
+                  elsif Generate_C_Code
+                    and then In_Same_Extended_Unit (Sloc (Bod), Loc)
+                    and then Chars (Name (N)) = Name_uPostconditions
+                  then
+                     Must_Inline := True;
                   end if;
                end if;
 
@@ -3897,6 +3909,53 @@ package body Exp_Ch6 is
                                                                       N_Entity
          then
             Add_Inlined_Body (Subp, Call_Node);
+
+            --  If the inlined call appears within an instantiation and some
+            --  level of optimization is required, ensure that the enclosing
+            --  instance body is available so that the back-end can actually
+            --  perform the inlining.
+
+            if In_Instance
+              and then Comes_From_Source (Subp)
+              and then Optimization_Level > 0
+            then
+               declare
+                  Inst : Entity_Id;
+                  Decl : Node_Id;
+
+               begin
+                  Inst := Scope (Subp);
+
+                  --  Find enclosing instance.
+
+                  while Present (Inst) and then Inst /= Standard_Standard loop
+                     exit when Is_Generic_Instance (Inst);
+                     Inst := Scope (Inst);
+                  end loop;
+
+                  if Present (Inst)
+                    and then Is_Generic_Instance (Inst)
+                    and then not Is_Inlined (Inst)
+                  then
+                     Set_Is_Inlined (Inst);
+                     Decl := Unit_Declaration_Node (Inst);
+
+                     --  Do not add a pending instantiation if the body exits
+                     --  already, or if the instance is a compilation unit, or
+                     --  the instance node is missing.
+
+                     if Present (Corresponding_Body (Decl))
+                       or else Nkind (Parent (Decl)) = N_Compilation_Unit
+                       or else No (Next (Decl))
+                     then
+                        null;
+
+                     else
+                        Add_Pending_Instantiation (Next (Decl), Decl);
+                     end if;
+                  end if;
+               end;
+            end if;
 
          --  Front end expansion of simple functions returning unconstrained
          --  types (see Check_And_Split_Unconstrained_Function). Note that the
@@ -5432,28 +5491,6 @@ package body Exp_Ch6 is
 
       Qualify_Entity_Names (N);
 
-      --  If we are unnesting procedures, and this is an outer level procedure
-      --  with nested subprograms, do the unnesting operation now.
-
-      if Opt.Unnest_Subprogram_Mode
-
-        --  We are only interested in subprograms (not generic subprograms)
-
-        and then Is_Subprogram (Spec_Id)
-
-        --  Only deal with outer level subprograms. Nested subprograms are
-        --  handled as part of dealing with the outer level subprogram in
-        --  which they are nested.
-
-        and then Enclosing_Subprogram (Spec_Id) = Empty
-
-        --  We are only interested in subprograms that have nested subprograms
-
-        and then Has_Nested_Subprogram (Spec_Id)
-      then
-         Unest_Bodies.Append ((Spec_Id, N));
-      end if;
-
       Ghost_Mode := Save_Ghost_Mode;
    end Expand_N_Subprogram_Body;
 
@@ -5462,10 +5499,24 @@ package body Exp_Ch6 is
    -----------------------------------
 
    procedure Expand_N_Subprogram_Body_Stub (N : Node_Id) is
+      Bod : Node_Id;
+
    begin
       if Present (Corresponding_Body (N)) then
-         Expand_N_Subprogram_Body (
-           Unit_Declaration_Node (Corresponding_Body (N)));
+         Bod := Unit_Declaration_Node (Corresponding_Body (N));
+
+         --  The body may have been expanded already when it is analyzed
+         --  through the subunit node. Do no expand again: it interferes
+         --  with the construction of unnesting tables when generating C.
+
+         if not Analyzed (Bod) then
+            Expand_N_Subprogram_Body (Bod);
+         end if;
+
+         --  Add full qualification to entities that may be created late
+         --  during unnesting.
+
+         Qualify_Entity_Names (N);
       end if;
    end Expand_N_Subprogram_Body_Stub;
 
@@ -5483,64 +5534,6 @@ package body Exp_Ch6 is
    procedure Expand_N_Subprogram_Declaration (N : Node_Id) is
       Loc  : constant Source_Ptr := Sloc (N);
       Subp : constant Entity_Id  := Defining_Entity (N);
-
-      procedure Build_Procedure_Form;
-      --  Create a procedure declaration which emulates the behavior of
-      --  function Subp, for C-compatible generation.
-
-      --------------------------
-      -- Build_Procedure_Form --
-      --------------------------
-
-      procedure Build_Procedure_Form is
-         Func_Formal  : Entity_Id;
-         Proc_Formals : List_Id;
-
-      begin
-         Proc_Formals := New_List;
-
-         --  Create a list of formal parameters with the same types as the
-         --  function.
-
-         Func_Formal := First_Formal (Subp);
-         while Present (Func_Formal) loop
-            Append_To (Proc_Formals,
-              Make_Parameter_Specification (Loc,
-                Defining_Identifier =>
-                  Make_Defining_Identifier (Loc, Chars (Func_Formal)),
-                Parameter_Type      =>
-                  New_Occurrence_Of (Etype (Func_Formal), Loc)));
-
-            Next_Formal (Func_Formal);
-         end loop;
-
-         --  Add an extra out parameter to carry the function result
-
-         Name_Len := 6;
-         Name_Buffer (1 .. Name_Len) := "RESULT";
-         Append_To (Proc_Formals,
-           Make_Parameter_Specification (Loc,
-             Defining_Identifier =>
-               Make_Defining_Identifier (Loc, Chars => Name_Find),
-             Out_Present         => True,
-             Parameter_Type      => New_Occurrence_Of (Etype (Subp), Loc)));
-
-         --  The new procedure declaration is inserted immediately after the
-         --  function declaration. The processing in Build_Procedure_Body_Form
-         --  relies on this order.
-
-         Insert_After_And_Analyze (N,
-           Make_Subprogram_Declaration (Loc,
-             Specification =>
-               Make_Procedure_Specification (Loc,
-                 Defining_Unit_Name       =>
-                   Make_Defining_Identifier (Loc, Chars (Subp)),
-                 Parameter_Specifications => Proc_Formals)));
-
-         --  Mark the function as having a procedure form
-
-         Set_Rewritten_For_C (Subp);
-      end Build_Procedure_Form;
 
       --  Local variables
 
@@ -5667,7 +5660,7 @@ package body Exp_Ch6 is
         and then Is_Constrained (Etype (Subp))
         and then not Is_Unchecked_Conversion_Instance (Subp)
       then
-         Build_Procedure_Form;
+         Build_Procedure_Form (N);
       end if;
    end Expand_N_Subprogram_Declaration;
 
@@ -8482,8 +8475,74 @@ package body Exp_Ch6 is
    -- Unnest_Subprograms --
    ------------------------
 
-   procedure Unnest_Subprograms is
+   procedure Unnest_Subprograms (N : Node_Id) is
+
+      procedure Search_Unnesting_Subprograms (N : Node_Id);
+      --  Search for outer level procedures with nested subprograms and append
+      --  them to the Unnest table.
+
+      ----------------------------------
+      -- Search_Unnesting_Subprograms --
+      ----------------------------------
+
+      procedure Search_Unnesting_Subprograms (N : Node_Id) is
+
+         function Search_Subprograms (N : Node_Id) return Traverse_Result;
+         --  Tree visitor that search for outer level procedures with nested
+         --  subprograms and adds them to the Unnest table.
+
+         ------------------------
+         -- Search_Subprograms --
+         ------------------------
+
+         function Search_Subprograms (N : Node_Id) return Traverse_Result is
+         begin
+            if Nkind_In (N, N_Subprogram_Body,
+                            N_Subprogram_Body_Stub)
+            then
+               declare
+                  Spec_Id : constant Entity_Id := Unique_Defining_Entity (N);
+
+               begin
+                  --  We are only interested in subprograms (not generic
+                  --  subprograms), that have nested subprograms.
+
+                  if Is_Subprogram (Spec_Id)
+                    and then Has_Nested_Subprogram (Spec_Id)
+                    and then Is_Library_Level_Entity (Spec_Id)
+                  then
+                     Unest_Bodies.Append ((Spec_Id, N));
+                  end if;
+               end;
+            end if;
+
+            return OK;
+         end Search_Subprograms;
+
+         ---------------
+         -- Do_Search --
+         ---------------
+
+         procedure Do_Search is new Traverse_Proc (Search_Subprograms);
+         --  Subtree visitor instantiation
+
+      --  Start of processing for Search_Unnesting_Subprograms
+
+      begin
+         if Opt.Unnest_Subprogram_Mode then
+            Do_Search (N);
+         end if;
+      end Search_Unnesting_Subprograms;
+
+   --  Start of processing for Unnest_Subprograms
+
    begin
+      if not Opt.Unnest_Subprogram_Mode then
+         return;
+      end if;
+
+      Search_Unnesting_Subprograms (N);
+
       for J in Unest_Bodies.First .. Unest_Bodies.Last loop
          declare
             UBJ : Unest_Entry renames Unest_Bodies.Table (J);

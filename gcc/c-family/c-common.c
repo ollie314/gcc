@@ -1568,7 +1568,9 @@ strict_aliasing_warning (tree otype, tree type, tree expr)
           alias_set_type set2 = get_alias_set (TREE_TYPE (type));
 
           if (set1 != set2 && set2 != 0
-	      && (set1 == 0 || !alias_sets_conflict_p (set1, set2)))
+	      && (set1 == 0
+		  || (!alias_set_subset_of (set2, set1)
+		      && !alias_sets_conflict_p (set1, set2))))
 	    {
 	      warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
 		       "pointer will break strict-aliasing rules");
@@ -5723,7 +5725,12 @@ build_va_arg (location_t loc, tree expr, tree type)
       /* Verify that &ap is still recognized as having va_list type.  */
       tree canon_expr_type
 	= targetm.canonical_va_list_type (TREE_TYPE (expr));
-      gcc_assert (canon_expr_type != NULL_TREE);
+      if (canon_expr_type == NULL_TREE)
+	{
+	  error_at (loc,
+		    "first argument to %<va_arg%> not of type %<va_list%>");
+	  return error_mark_node;
+	}
 
       return build_va_arg_1 (loc, type, expr);
     }
@@ -5791,7 +5798,12 @@ build_va_arg (location_t loc, tree expr, tree type)
       /* Verify that &ap is still recognized as having va_list type.  */
       tree canon_expr_type
 	= targetm.canonical_va_list_type (TREE_TYPE (expr));
-      gcc_assert (canon_expr_type != NULL_TREE);
+      if (canon_expr_type == NULL_TREE)
+	{
+	  error_at (loc,
+		    "first argument to %<va_arg%> not of type %<va_list%>");
+	  return error_mark_node;
+	}
     }
   else
     {
@@ -7825,7 +7837,7 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       else
 	*type = build_variant_type_copy (*type);
 
-      TYPE_ALIGN (*type) = (1U << i) * BITS_PER_UNIT;
+      SET_TYPE_ALIGN (*type, (1U << i) * BITS_PER_UNIT);
       TYPE_USER_ALIGN (*type) = 1;
     }
   else if (! VAR_OR_FUNCTION_DECL_P (decl)
@@ -7859,7 +7871,7 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
     }
   else
     {
-      DECL_ALIGN (decl) = (1U << i) * BITS_PER_UNIT;
+      SET_DECL_ALIGN (decl, (1U << i) * BITS_PER_UNIT);
       DECL_USER_ALIGN (decl) = 1;
     }
 
@@ -9818,6 +9830,33 @@ check_builtin_function_arguments (tree fndecl, int nargs, tree *args)
 
   switch (DECL_FUNCTION_CODE (fndecl))
     {
+    case BUILT_IN_ALLOCA_WITH_ALIGN:
+      {
+	/* Get the requested alignment (in bits) if it's a constant
+	   integer expression.  */
+	unsigned HOST_WIDE_INT align
+	  = tree_fits_uhwi_p (args[1]) ? tree_to_uhwi (args[1]) : 0;
+
+	/* Determine if the requested alignment is a power of 2.  */
+	if ((align & (align - 1)))
+	  align = 0;
+
+	/* The maximum alignment in bits corresponding to the same
+	   maximum in bytes enforced in check_user_alignment().  */
+	unsigned maxalign = (UINT_MAX >> 1) + 1;
+  
+	/* Reject invalid alignments.  */
+	if (align < BITS_PER_UNIT || maxalign < align)
+	  {
+	    error_at (EXPR_LOC_OR_LOC (args[1], input_location),
+		      "second argument to function %qE must be a constant "
+		      "integer power of 2 between %qi and %qu bits",
+		      fndecl, BITS_PER_UNIT, maxalign);
+	    return false;
+	  }
+      return true;
+      }
+
     case BUILT_IN_CONSTANT_P:
       return builtin_function_validate_nargs (fndecl, nargs, 1);
 
@@ -10675,7 +10714,7 @@ sync_resolve_size (tree function, vec<tree, va_gc> *params, bool fetch)
   tree type;
   int size;
 
-  if (!params)
+  if (vec_safe_is_empty (params))
     {
       error ("too few arguments to function %qE", function);
       return 0;
@@ -11415,6 +11454,10 @@ resolve_overloaded_builtin (location_t loc, tree function,
 	    && orig_code != BUILT_IN_SYNC_LOCK_RELEASE_N
 	    && orig_code != BUILT_IN_ATOMIC_STORE_N)
 	  result = sync_resolve_return (first_param, result, orig_format);
+
+	if (fetch_op)
+	  /* Prevent -Wunused-value warning.  */
+	  TREE_USED (result) = true;
 
 	/* If new_return is set, assign function to that expr and cast the
 	   result to void since the generic interface returned void.  */
@@ -12611,7 +12654,7 @@ reject_gcc_builtin (const_tree expr, location_t loc /* = UNKNOWN_LOCATION */)
 
   if (TREE_TYPE (expr)
       && TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE
-      && DECL_P (expr)
+      && TREE_CODE (expr) == FUNCTION_DECL
       /* The intersection of DECL_BUILT_IN and DECL_IS_BUILTIN avoids
 	 false positives for user-declared built-ins such as abs or
 	 strlen, and for C++ operators new and delete.

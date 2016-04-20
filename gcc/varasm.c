@@ -1053,7 +1053,7 @@ align_variable (tree decl, bool dont_output_data)
 
   /* Reset the alignment in case we have made it tighter, so we can benefit
      from it in get_pointer_alignment.  */
-  DECL_ALIGN (decl) = align;
+  SET_DECL_ALIGN (decl, align);
 }
 
 /* Return DECL_ALIGN (decl), possibly increased for optimization purposes
@@ -2187,8 +2187,8 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
       && asan_protect_global (decl))
     {
       asan_protected = true;
-      DECL_ALIGN (decl) = MAX (DECL_ALIGN (decl), 
-                               ASAN_RED_ZONE_SIZE * BITS_PER_UNIT);
+      SET_DECL_ALIGN (decl, MAX (DECL_ALIGN (decl),
+				 ASAN_RED_ZONE_SIZE * BITS_PER_UNIT));
     }
 
   set_mem_align (decl_rtl, DECL_ALIGN (decl));
@@ -3249,7 +3249,7 @@ build_constant_desc (tree exp)
      architectures so use DATA_ALIGNMENT as well, except for strings.  */
   if (TREE_CODE (exp) == STRING_CST)
     {
-      DECL_ALIGN (decl) = CONSTANT_ALIGNMENT (exp, DECL_ALIGN (decl));
+      SET_DECL_ALIGN (decl, CONSTANT_ALIGNMENT (exp, DECL_ALIGN (decl)));
     }
   else
     align_variable (decl, 0);
@@ -3404,8 +3404,8 @@ output_constant_def_contents (rtx symbol)
       && asan_protect_global (exp))
     {
       asan_protected = true;
-      DECL_ALIGN (decl) = MAX (DECL_ALIGN (decl),
-			       ASAN_RED_ZONE_SIZE * BITS_PER_UNIT);
+      SET_DECL_ALIGN (decl, MAX (DECL_ALIGN (decl),
+				 ASAN_RED_ZONE_SIZE * BITS_PER_UNIT));
     }
 
   /* If the constant is part of an object block, make sure that the
@@ -4929,6 +4929,14 @@ output_constructor_regular_field (oc_local_state *local)
 
   unsigned int align2;
 
+  /* Output any buffered-up bit-fields preceding this element.  */
+  if (local->byte_buffer_in_use)
+    {
+      assemble_integer (GEN_INT (local->byte), 1, BITS_PER_UNIT, 1);
+      local->total_bytes++;
+      local->byte_buffer_in_use = false;
+    }
+
   if (local->index != NULL_TREE)
     {
       /* Perform the index calculation in modulo arithmetic but
@@ -4945,22 +4953,19 @@ output_constructor_regular_field (oc_local_state *local)
   else
     fieldpos = 0;
 
-  /* Output any buffered-up bit-fields preceding this element.  */
-  if (local->byte_buffer_in_use)
-    {
-      assemble_integer (GEN_INT (local->byte), 1, BITS_PER_UNIT, 1);
-      local->total_bytes++;
-      local->byte_buffer_in_use = false;
-    }
-
   /* Advance to offset of this element.
      Note no alignment needed in an array, since that is guaranteed
      if each element has the proper size.  */
-  if ((local->field != NULL_TREE || local->index != NULL_TREE)
-      && fieldpos > local->total_bytes)
+  if (local->field != NULL_TREE || local->index != NULL_TREE)
     {
-      assemble_zeros (fieldpos - local->total_bytes);
-      local->total_bytes = fieldpos;
+      if (fieldpos > local->total_bytes)
+	{
+	  assemble_zeros (fieldpos - local->total_bytes);
+	  local->total_bytes = fieldpos;
+	}
+      else
+	/* Must not go backwards.  */
+	gcc_assert (fieldpos == local->total_bytes);
     }
 
   /* Find the alignment of this element.  */

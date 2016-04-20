@@ -68,6 +68,7 @@
    |mcpu=cortex-a15.cortex-a7				\
    |mcpu=cortex-a17.cortex-a7				\
    |mcpu=marvell-pj4					\
+   |mcpu=cortex-a32					\
    |mcpu=cortex-a35					\
    |mcpu=cortex-a53					\
    |mcpu=cortex-a57					\
@@ -86,6 +87,9 @@
    |march=armv7e-m|mcpu=cortex-m4|mcpu=cortex-m7        \
    |march=armv6-m|mcpu=cortex-m0                        \
    |march=armv8-a					\
+   |march=armv8-a+crc					\
+   |march=armv8.1-a					\
+   |march=armv8.1-a+crc					\
    :%{!r:--be8}}}"
 #else
 #define BE8_LINK_SPEC \
@@ -114,6 +118,9 @@
    |march=armv7e-m|mcpu=cortex-m4|mcpu=cortex-m7        \
    |march=armv6-m|mcpu=cortex-m0                        \
    |march=armv8-a					\
+   |march=armv8-a+crc					\
+   |march=armv8.1-a					\
+   |march=armv8.1-a+crc					\
    :%{!r:--be8}}}"
 #endif
 

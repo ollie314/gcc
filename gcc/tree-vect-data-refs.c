@@ -3089,6 +3089,30 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	    = tree_to_shwi (dr_a2->offset) - tree_to_shwi (dr_a1->offset);
 
 
+	  bool do_remove = false;
+
+	  /* If the left segment does not extend beyond the start of the
+	     right segment the new segment length is that of the right
+	     plus the segment distance.  */
+	  if (tree_fits_uhwi_p (dr_a1->seg_len)
+	      && compare_tree_int (dr_a1->seg_len, diff) <= 0)
+	    {
+	      dr_a1->seg_len = size_binop (PLUS_EXPR, dr_a2->seg_len,
+					   size_int (diff));
+	      do_remove = true;
+	    }
+	  /* Generally the new segment length is the maximum of the
+	     left segment size and the right segment size plus the distance.
+	     ???  We can also build tree MAX_EXPR here but it's not clear this
+	     is profitable.  */
+	  else if (tree_fits_uhwi_p (dr_a1->seg_len)
+		   && tree_fits_uhwi_p (dr_a2->seg_len))
+	    {
+	      unsigned HOST_WIDE_INT seg_len_a1 = tree_to_uhwi (dr_a1->seg_len);
+	      unsigned HOST_WIDE_INT seg_len_a2 = tree_to_uhwi (dr_a2->seg_len);
+	      dr_a1->seg_len = size_int (MAX (seg_len_a1, diff + seg_len_a2));
+	      do_remove = true;
+	    }
 	  /* Now we check if the following condition is satisfied:
 
 	     DIFF - SEGMENT_LENGTH_A < SEGMENT_LENGTH_B
@@ -3101,39 +3125,39 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	     one above:
 
 	     1: DIFF <= MIN_SEG_LEN_B
-	     2: DIFF - SEGMENT_LENGTH_A < MIN_SEG_LEN_B
+	     2: DIFF - SEGMENT_LENGTH_A < MIN_SEG_LEN_B  */
+	  else
+	    {
+	      unsigned HOST_WIDE_INT min_seg_len_b
+		= (tree_fits_uhwi_p (dr_b1->seg_len)
+		   ? tree_to_uhwi (dr_b1->seg_len)
+		   : vect_factor);
 
-	     */
+	      if (diff <= min_seg_len_b
+		  || (tree_fits_uhwi_p (dr_a1->seg_len)
+		      && diff - tree_to_uhwi (dr_a1->seg_len) < min_seg_len_b))
+		{
+		  dr_a1->seg_len = size_binop (PLUS_EXPR,
+					       dr_a2->seg_len, size_int (diff));
+		  do_remove = true;
+		}
+	    }
 
-	  unsigned HOST_WIDE_INT min_seg_len_b
-	    = (tree_fits_uhwi_p (dr_b1->seg_len)
-	       ? tree_to_uhwi (dr_b1->seg_len)
-	       : vect_factor);
-
-	  if (diff <= min_seg_len_b
-	      || (tree_fits_uhwi_p (dr_a1->seg_len)
-		  && diff - tree_to_uhwi (dr_a1->seg_len) < min_seg_len_b))
+	  if (do_remove)
 	    {
 	      if (dump_enabled_p ())
 		{
 		  dump_printf_loc (MSG_NOTE, vect_location,
 				   "merging ranges for ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM,
-				     DR_REF (dr_a1->dr));
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a1->dr));
 		  dump_printf (MSG_NOTE,  ", ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM,
-				     DR_REF (dr_b1->dr));
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b1->dr));
 		  dump_printf (MSG_NOTE,  " and ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM,
-				     DR_REF (dr_a2->dr));
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a2->dr));
 		  dump_printf (MSG_NOTE,  ", ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM,
-				     DR_REF (dr_b2->dr));
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b2->dr));
 		  dump_printf (MSG_NOTE, "\n");
 		}
-
-	      dr_a1->seg_len = size_binop (PLUS_EXPR,
-					   dr_a2->seg_len, size_int (diff));
 	      comp_alias_ddrs.ordered_remove (i--);
 	    }
 	}
@@ -5959,10 +5983,19 @@ vect_supportable_dr_alignment (struct data_reference *dr,
 	      || targetm.vectorize.builtin_mask_for_load ()))
 	{
 	  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-	  if ((nested_in_vect_loop
-	       && (TREE_INT_CST_LOW (DR_STEP (dr))
-	 	   != GET_MODE_SIZE (TYPE_MODE (vectype))))
-              || !loop_vinfo)
+
+	  /* If we are doing SLP then the accesses need not have the
+	     same alignment, instead it depends on the SLP group size.  */
+	  if (loop_vinfo
+	      && STMT_SLP_TYPE (stmt_info)
+	      && (LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+		  * GROUP_SIZE (vinfo_for_stmt (GROUP_FIRST_ELEMENT (stmt_info)))
+		  % TYPE_VECTOR_SUBPARTS (vectype) != 0))
+	    ;
+	  else if (!loop_vinfo
+		   || (nested_in_vect_loop
+		       && (TREE_INT_CST_LOW (DR_STEP (dr))
+			   != GET_MODE_SIZE (TYPE_MODE (vectype)))))
 	    return dr_explicit_realign;
 	  else
 	    return dr_explicit_realign_optimized;

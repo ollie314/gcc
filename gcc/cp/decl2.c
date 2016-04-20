@@ -2685,14 +2685,22 @@ reset_type_linkage_2 (tree type)
 	  reset_decl_linkage (ti);
 	}
       for (tree m = TYPE_FIELDS (type); m; m = DECL_CHAIN (m))
-	if (VAR_P (m))
-	  reset_decl_linkage (m);
+	{
+	  tree mem = STRIP_TEMPLATE (m);
+	  if (VAR_P (mem))
+	    reset_decl_linkage (mem);
+	}
       for (tree m = TYPE_METHODS (type); m; m = DECL_CHAIN (m))
 	{
-	  reset_decl_linkage (m);
-	  if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (m))
-	    /* Also update its name, for cxx_dwarf_name.  */
-	    DECL_NAME (m) = TYPE_IDENTIFIER (type);
+	  tree mem = STRIP_TEMPLATE (m);
+	  reset_decl_linkage (mem);
+	  if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (mem))
+	    {
+	      /* Also update its name, for cxx_dwarf_name.  */
+	      DECL_NAME (mem) = TYPE_IDENTIFIER (type);
+	      if (m != mem)
+		DECL_NAME (m) = TYPE_IDENTIFIER (type);
+	    }
 	}
       binding_table_foreach (CLASSTYPE_NESTED_UTDS (type),
 			     bt_reset_linkage_2, NULL);
@@ -4896,6 +4904,8 @@ c_parse_final_cleanups (void)
 
   finish_repo ();
 
+  fini_constexpr ();
+
   /* The entire file is now complete.  If requested, dump everything
      to a file.  */
   dump_tu ();
@@ -5131,14 +5141,6 @@ mark_used (tree decl, tsubst_flags_t complain)
      we get them compiled before functions that want to inline them.  */
   if (DECL_ODR_USED (decl))
     return true;
-
-  /* If within finish_function, defer the rest until that function
-     finishes, otherwise it might recurse.  */
-  if (defer_mark_used_calls)
-    {
-      vec_safe_push (deferred_mark_used_calls, decl);
-      return true;
-    }
 
   /* Normally, we can wait until instantiation-time to synthesize DECL.
      However, if DECL is a static data member initialized with a constant

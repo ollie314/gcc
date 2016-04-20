@@ -2368,7 +2368,7 @@ package Einfo is
 --       Defined in functions and procedures. Set for a generated procedure
 --       which verifies the assumption of pragma Default_Initial_Condition.
 
---    Is_Descendent_Of_Address (Flag223)
+--    Is_Descendant_Of_Address (Flag223)
 --       Defined in all entities. True if the entity is type System.Address,
 --       or (recursively) a subtype or derived type of System.Address.
 
@@ -2427,6 +2427,11 @@ package Einfo is
 
 --    Is_Enumeration_Type (synthesized)
 --       Defined in all entities, true for enumeration types and subtypes
+
+--    Is_Exception_Handler (Flag286)
+--       Defined in blocks. Set if the block serves only as a scope of an
+--       exception handler with a choice parameter. Such a block does not
+--       physically appear in the tree.
 
 --    Is_Exported (Flag99)
 --       Defined in all entities. Set if the entity is exported. For now we
@@ -2929,7 +2934,7 @@ package Einfo is
 --    Is_Private_Descendant (Flag53)
 --       Defined in entities that can represent library units (packages,
 --       functions, procedures). Set if the library unit is itself a private
---       child unit, or if it is the descendent of a private child unit.
+--       child unit, or if it is the descendant of a private child unit.
 
 --    Is_Private_Primitive (Flag245)
 --       Defined in subprograms. Set if the operation is a primitive of a
@@ -3385,7 +3390,7 @@ package Einfo is
 
 --    Needs_No_Actuals (Flag22)
 --       Defined in callable entities (subprograms, entries, access to
---       subprograms)  which can be called without actuals because all of
+--       subprograms) which can be called without actuals because all of
 --       their formals (if any) have default values. This flag simplifies the
 --       resolution of the syntactic ambiguity involving a call to these
 --       entities when the return type is an array type, and a call can be
@@ -3449,7 +3454,7 @@ package Einfo is
 
 --    Next_Discriminant (synthesized)
 --       Applies to discriminants returned by First/Next_Discriminant. Returns
---       the next language-defined (ie: perhaps non-girder) discriminant by
+--       the next language-defined (i.e. perhaps non-girder) discriminant by
 --       following the chain of declared entities as long as the kind of the
 --       entity corresponds to a discriminant. Note that the discriminants
 --       might be the only components of the record. Returns Empty if there
@@ -3886,17 +3891,16 @@ package Einfo is
 --       package can see the entities in the package via the renaming.
 
 --    Renamed_Object (Node18)
---       Defined in all objects (constants, variables, components, formal
---       parameters, generic formal parameters, and loop parameters).
---       ??? Defined in discriminants?
---       Set non-Empty if the object was declared by a renaming declaration,
---       in which case it references the tree node for the name of the renamed
---       object. This is only possible for the variable and constant cases.
---       For formal parameters, this field is used in the course of inline
---       expansion, to map the formals of a subprogram into the corresponding
---       actuals. For formals of a task entry, it denotes the local renaming
---       that replaces the actual within the accept statement. The field is
---       Empty otherwise (it is always empty for loop parameters).
+--       Defined in components, constants, discriminants, formal parameters,
+--       generic formals, loop parameters, and variables. Set to non-Empty if
+--       the object was declared by a renaming declaration. For constants and
+--       variables, the attribute references the tree node for the name of the
+--       renamed object. For formal parameters, the field is used in inlining
+--       and maps the entities of all formal parameters of a subprogram to the
+--       entities of the corresponding actuals. For formals of a task entry,
+--       the attribute denotes the local renaming that replaces the actual
+--       within an accept statement. For all remaining cases (discriminants,
+--       loop parameters) the field is Empty.
 
 --    Renaming_Map (Uint9)
 --       Defined in generic subprograms, generic packages, and their
@@ -4442,9 +4446,9 @@ package Einfo is
 --  protected operation, etc).
 
 --  b) Alias applies to overloadable entities, and the value is an overloadable
---  entity. so this is a subset of the previous one. We use the term Alias to
+--  entity. So this is a subset of the previous one. We use the term Alias to
 --  cover both renamings and inherited operations, because both cases are
---  handled in the same way when expanding a call. namely the Alias of a given
+--  handled in the same way when expanding a call. Namely the Alias of a given
 --  subprogram is the subprogram that will actually be called.
 
 --  Both a) and b) are set transitively, so that in fact it is not necessary to
@@ -4472,7 +4476,7 @@ package Einfo is
 --  The flag Has_Delayed_Freeze indicates that an entity carries an explicit
 --  freeze node, which appears later in the expanded tree.
 
---  a)   The flag is used by the front-end to trigger expansion actions
+--  a) The flag is used by the front-end to trigger expansion actions
 --  which include the generation of that freeze node. Typically this happens at
 --  the end of the current compilation unit, or before the first subprogram
 --  body is encountered in the current unit. See files freeze and exp_ch13 for
@@ -4480,7 +4484,7 @@ package Einfo is
 --  construction of initialization procedures and dispatch tables.
 
 --  b) The flag is used by the backend to defer elaboration of the entity until
---  its freeze node is seen.  In the absence of an explicit freeze node, an
+--  its freeze node is seen. In the absence of an explicit freeze node, an
 --  entity is frozen (and elaborated) at the point of declaration.
 
 --  For object declarations, the flag is set when an address clause for the
@@ -5341,7 +5345,7 @@ package Einfo is
    --    Is_Checked_Ghost_Entity             (Flag277)
    --    Is_Child_Unit                       (Flag73)
    --    Is_Compilation_Unit                 (Flag149)
-   --    Is_Descendent_Of_Address            (Flag223)
+   --    Is_Descendant_Of_Address            (Flag223)
    --    Is_Discrim_SO_Function              (Flag176)
    --    Is_Discriminant_Check_Function      (Flag264)
    --    Is_Dispatch_Table_Entity            (Flag234)
@@ -5622,6 +5626,7 @@ package Einfo is
    --    Discard_Names                       (Flag88)
    --    Has_Master_Entity                   (Flag21)
    --    Has_Nested_Block_With_Handler       (Flag101)
+   --    Is_Exception_Handler                (Flag286)
    --    Sec_Stack_Needed_For_Return         (Flag167)
    --    Uses_Sec_Stack                      (Flag95)
    --    Scope_Depth                         (synth)
@@ -6965,13 +6970,14 @@ package Einfo is
    function Is_Controlling_Formal               (Id : E) return B;
    function Is_CPP_Class                        (Id : E) return B;
    function Is_Default_Init_Cond_Procedure      (Id : E) return B;
-   function Is_Descendent_Of_Address            (Id : E) return B;
+   function Is_Descendant_Of_Address            (Id : E) return B;
    function Is_Discrim_SO_Function              (Id : E) return B;
    function Is_Discriminant_Check_Function      (Id : E) return B;
    function Is_Dispatch_Table_Entity            (Id : E) return B;
    function Is_Dispatching_Operation            (Id : E) return B;
    function Is_Eliminated                       (Id : E) return B;
    function Is_Entry_Formal                     (Id : E) return B;
+   function Is_Exception_Handler                (Id : E) return B;
    function Is_Exported                         (Id : E) return B;
    function Is_First_Subtype                    (Id : E) return B;
    function Is_For_Access_Subtype               (Id : E) return B;
@@ -7628,13 +7634,14 @@ package Einfo is
    procedure Set_Is_Controlling_Formal           (Id : E; V : B := True);
    procedure Set_Is_CPP_Class                    (Id : E; V : B := True);
    procedure Set_Is_Default_Init_Cond_Procedure  (Id : E; V : B := True);
-   procedure Set_Is_Descendent_Of_Address        (Id : E; V : B := True);
+   procedure Set_Is_Descendant_Of_Address        (Id : E; V : B := True);
    procedure Set_Is_Discrim_SO_Function          (Id : E; V : B := True);
    procedure Set_Is_Discriminant_Check_Function  (Id : E; V : B := True);
    procedure Set_Is_Dispatch_Table_Entity        (Id : E; V : B := True);
    procedure Set_Is_Dispatching_Operation        (Id : E; V : B := True);
    procedure Set_Is_Eliminated                   (Id : E; V : B := True);
    procedure Set_Is_Entry_Formal                 (Id : E; V : B := True);
+   procedure Set_Is_Exception_Handler            (Id : E; V : B := True);
    procedure Set_Is_Exported                     (Id : E; V : B := True);
    procedure Set_Is_First_Subtype                (Id : E; V : B := True);
    procedure Set_Is_For_Access_Subtype           (Id : E; V : B := True);
@@ -8422,7 +8429,7 @@ package Einfo is
    pragma Inline (Is_CPP_Class);
    pragma Inline (Is_Decimal_Fixed_Point_Type);
    pragma Inline (Is_Default_Init_Cond_Procedure);
-   pragma Inline (Is_Descendent_Of_Address);
+   pragma Inline (Is_Descendant_Of_Address);
    pragma Inline (Is_Digits_Type);
    pragma Inline (Is_Discrete_Or_Fixed_Point_Type);
    pragma Inline (Is_Discrete_Type);
@@ -8435,6 +8442,7 @@ package Einfo is
    pragma Inline (Is_Entry);
    pragma Inline (Is_Entry_Formal);
    pragma Inline (Is_Enumeration_Type);
+   pragma Inline (Is_Exception_Handler);
    pragma Inline (Is_Exported);
    pragma Inline (Is_First_Subtype);
    pragma Inline (Is_Fixed_Point_Type);
@@ -8917,13 +8925,14 @@ package Einfo is
    pragma Inline (Set_Is_Controlling_Formal);
    pragma Inline (Set_Is_CPP_Class);
    pragma Inline (Set_Is_Default_Init_Cond_Procedure);
-   pragma Inline (Set_Is_Descendent_Of_Address);
+   pragma Inline (Set_Is_Descendant_Of_Address);
    pragma Inline (Set_Is_Discrim_SO_Function);
    pragma Inline (Set_Is_Discriminant_Check_Function);
    pragma Inline (Set_Is_Dispatch_Table_Entity);
    pragma Inline (Set_Is_Dispatching_Operation);
    pragma Inline (Set_Is_Eliminated);
    pragma Inline (Set_Is_Entry_Formal);
+   pragma Inline (Set_Is_Exception_Handler);
    pragma Inline (Set_Is_Exported);
    pragma Inline (Set_Is_First_Subtype);
    pragma Inline (Set_Is_For_Access_Subtype);

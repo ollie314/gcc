@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -2915,9 +2915,9 @@ package body Sem_Ch3 is
         and then Chars (Def_Id) = Name_Address
         and then Is_Predefined_File_Name (Unit_File_Name (Get_Source_Unit (N)))
       then
-         Set_Is_Descendent_Of_Address (Def_Id);
-         Set_Is_Descendent_Of_Address (Base_Type (Def_Id));
-         Set_Is_Descendent_Of_Address (Prev);
+         Set_Is_Descendant_Of_Address (Def_Id);
+         Set_Is_Descendant_Of_Address (Base_Type (Def_Id));
+         Set_Is_Descendant_Of_Address (Prev);
       end if;
 
       Set_Optimize_Alignment_Flags (Def_Id);
@@ -3168,7 +3168,7 @@ package body Sem_Ch3 is
          end loop;
       end if;
 
-      if Is_Integer_Type (T)  then
+      if Is_Integer_Type (T) then
          Resolve (E, T);
          Set_Etype (Id, Universal_Integer);
          Set_Ekind (Id, E_Named_Integer);
@@ -3776,9 +3776,13 @@ package body Sem_Ch3 is
          --  A formal parameter of a specific tagged type whose related
          --  subprogram is subject to pragma Extensions_Visible with value
          --  "False" cannot be implicitly converted to a class-wide type by
-         --  means of an initialization expression (SPARK RM 6.1.7(3)).
+         --  means of an initialization expression (SPARK RM 6.1.7(3)). Do
+         --  not consider internally generated expressions.
 
-         if Is_Class_Wide_Type (T) and then Is_EVF_Expression (E) then
+         if Is_Class_Wide_Type (T)
+           and then Comes_From_Source (E)
+           and then Is_EVF_Expression (E)
+         then
             Error_Msg_N
               ("formal parameter with Extensions_Visible False cannot be "
                & "implicitly converted to class-wide type", E);
@@ -5063,7 +5067,7 @@ package body Sem_Ch3 is
 
       Set_Is_Immediately_Visible   (Id, True);
       Set_Depends_On_Private       (Id, Has_Private_Component (T));
-      Set_Is_Descendent_Of_Address (Id, Is_Descendent_Of_Address (T));
+      Set_Is_Descendant_Of_Address (Id, Is_Descendant_Of_Address (T));
 
       if Is_Interface (T) then
          Set_Is_Interface (Id);
@@ -5958,16 +5962,6 @@ package body Sem_Ch3 is
       if Null_Exclusion_Present (Type_Definition (N)) then
          Set_Can_Never_Be_Null (Derived_Type);
 
-         --  What is with the "AND THEN FALSE" here ???
-
-         if Can_Never_Be_Null (Parent_Type)
-           and then False
-         then
-            Error_Msg_NE
-              ("`NOT NULL` not allowed (& already excludes null)",
-                N, Parent_Type);
-         end if;
-
       elsif Can_Never_Be_Null (Parent_Type) then
          Set_Can_Never_Be_Null (Derived_Type);
       end if;
@@ -5979,6 +5973,7 @@ package body Sem_Ch3 is
       --  ??? THIS CODE SHOULD NOT BE HERE REALLY.
 
       Desig_Type := Designated_Type (Derived_Type);
+
       if Is_Composite_Type (Desig_Type)
         and then (not Is_Array_Type (Desig_Type))
         and then Has_Discriminants (Desig_Type)
@@ -6745,10 +6740,10 @@ package body Sem_Ch3 is
          Set_Is_Known_Valid (Derived_Type, Is_Known_Valid (Parent_Type));
       end if;
 
-      Set_Is_Descendent_Of_Address (Derived_Type,
-        Is_Descendent_Of_Address (Parent_Type));
-      Set_Is_Descendent_Of_Address (Implicit_Base,
-        Is_Descendent_Of_Address (Parent_Type));
+      Set_Is_Descendant_Of_Address (Derived_Type,
+        Is_Descendant_Of_Address (Parent_Type));
+      Set_Is_Descendant_Of_Address (Implicit_Base,
+        Is_Descendant_Of_Address (Parent_Type));
 
       --  Set remaining type-specific fields, depending on numeric type
 
@@ -11825,8 +11820,17 @@ package body Sem_Ch3 is
       --  in particular when the full type is a scalar type for which an
       --  anonymous base type is constructed.
 
+      --  The predicate functions are generated either at the freeze point
+      --  of the type or at the end of the visible part, and we must avoid
+      --  generating them twice.
+
       if Has_Predicates (Priv) then
          Set_Has_Predicates (Full);
+         if Present (Predicate_Function (Priv))
+            and then No (Predicate_Function (Full))
+         then
+            Set_Predicate_Function (Full, Predicate_Function (Priv));
+         end if;
       end if;
 
       if Has_Delayed_Aspects (Priv) then
@@ -13044,6 +13048,18 @@ package body Sem_Ch3 is
          T := Designated_Type (T);
       end if;
 
+      --  In an instance it may be necessary to retrieve the full view of a
+      --  type with unknown discriminants. In other contexts the constraint
+      --  is illegal.
+
+      if In_Instance
+        and then Is_Private_Type (T)
+        and then Has_Unknown_Discriminants (T)
+        and then Present (Full_View (T))
+      then
+         T := Full_View (T);
+      end if;
+
       --  Ada 2005 (AI-412): Constrained incomplete subtypes are illegal.
       --  Avoid generating an error for access-to-incomplete subtypes.
 
@@ -13867,8 +13883,8 @@ package body Sem_Ch3 is
       --  Inherit the discriminants of the parent type
 
       Add_Discriminants : declare
-         Num_Disc : Int;
-         Num_Gird : Int;
+         Num_Disc : Nat;
+         Num_Gird : Nat;
 
       begin
          Num_Disc := 0;
@@ -14518,7 +14534,7 @@ package body Sem_Ch3 is
             --  of the derived type are not relevant, and thus we can use
             --  the base type for the formals. However, the return type may be
             --  used in a context that requires that the proper static bounds
-            --  be used (a case statement, for example)  and for those cases
+            --  be used (a case statement, for example) and for those cases
             --  we must use the derived type (first subtype), not its base.
 
             --  If the derived_type_definition has no constraints, we know that
@@ -14649,8 +14665,8 @@ package body Sem_Ch3 is
       then
          Set_Derived_Name;
 
-      --  Otherwise, the type is inheriting a private operation, so enter
-      --  it with a special name so it can't be overridden.
+      --  Otherwise, the type is inheriting a private operation, so enter it
+      --  with a special name so it can't be overridden.
 
       else
          Set_Chars (New_Subp, New_External_Name (Chars (Parent_Subp), 'P'));
@@ -19828,7 +19844,7 @@ package body Sem_Ch3 is
                         end if;
 
                      elsif Is_Dispatching_Operation (Prim)
-                       and then Disp_Typ  /= Full_T
+                       and then Disp_Typ /= Full_T
                      then
 
                         --  Verify that it is not otherwise controlled by a
@@ -19955,14 +19971,6 @@ package body Sem_Ch3 is
          --  point of completion must match (SPARK RM 6.9(14)).
 
          Check_Ghost_Completion (Priv_T, Full_T);
-
-         --  In the case where the private view of a tagged type lacks a parent
-         --  type and is subject to pragma Ghost, ensure that the parent type
-         --  specified by the full view is also Ghost (SPARK RM 6.9(9)).
-
-         if Is_Derived_Type (Full_T) then
-            Check_Ghost_Derivation (Full_T);
-         end if;
 
          --  Propagate the attributes related to pragma Ghost from the private
          --  to the full view.
@@ -20749,7 +20757,13 @@ package body Sem_Ch3 is
 
             when Private_Kind =>
                Constrain_Discriminated_Type (Def_Id, S, Related_Nod);
-               Set_Private_Dependents (Def_Id, New_Elmt_List);
+
+               --  The base type may be private but Def_Id may be a full view
+               --  in an instance.
+
+               if Is_Private_Type (Def_Id) then
+                  Set_Private_Dependents (Def_Id, New_Elmt_List);
+               end if;
 
                --  In case of an invalid constraint prevent further processing
                --  since the type constructed is missing expected fields.

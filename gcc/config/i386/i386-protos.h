@@ -44,6 +44,8 @@ extern bool ix86_use_pseudo_pic_reg (void);
 
 extern void ix86_reset_previous_fndecl (void);
 
+extern bool ix86_using_red_zone (void);
+
 #ifdef RTX_CODE
 extern int standard_80387_constant_p (rtx);
 extern const char *standard_80387_constant_opcode (rtx);
@@ -332,4 +334,3 @@ struct ix86_first_cycle_multipass_data_
 
 const addr_space_t ADDR_SPACE_SEG_FS = 1;
 const addr_space_t ADDR_SPACE_SEG_GS = 2;
-const addr_space_t ADDR_SPACE_SEG_TLS = 3;

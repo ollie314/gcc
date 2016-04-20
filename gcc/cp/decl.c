@@ -227,11 +227,6 @@ struct GTY((for_user)) named_label_entry {
    function, two inside the body of a function in a local class, etc.)  */
 int function_depth;
 
-/* To avoid unwanted recursion, finish_function defers all mark_used calls
-   encountered during its execution until it finishes.  */
-bool defer_mark_used_calls;
-vec<tree, va_gc> *deferred_mark_used_calls;
-
 /* States indicating how grokdeclarator() should handle declspecs marked
    with __attribute__((deprecated)).  An object declared as
    __attribute__((deprecated)) suppresses warnings of uses of other
@@ -373,33 +368,61 @@ pop_label (tree label, tree old_value)
   SET_IDENTIFIER_LABEL_VALUE (DECL_NAME (label), old_value);
 }
 
+/* Push all named labels into a vector, so that we can sort it on DECL_UID
+   to avoid code generation differences.  */
+
+int
+note_label (named_label_entry **slot, vec<named_label_entry **> &labels)
+{
+  labels.quick_push (slot);
+  return 1;
+}
+
+/* Helper function to sort named label entries in a vector by DECL_UID.  */
+
+static int
+sort_labels (const void *a, const void *b)
+{
+  named_label_entry **slot1 = *(named_label_entry **const *) a;
+  named_label_entry **slot2 = *(named_label_entry **const *) b;
+  if (DECL_UID ((*slot1)->label_decl) < DECL_UID ((*slot2)->label_decl))
+    return -1;
+  if (DECL_UID ((*slot1)->label_decl) > DECL_UID ((*slot2)->label_decl))
+    return 1;
+  return 0;
+}
+
 /* At the end of a function, all labels declared within the function
    go out of scope.  BLOCK is the top-level block for the
    function.  */
-
-int
-pop_labels_1 (named_label_entry **slot, tree block)
-{
-  struct named_label_entry *ent = *slot;
-
-  pop_label (ent->label_decl, NULL_TREE);
-
-  /* Put the labels into the "variables" of the top-level block,
-     so debugger can see them.  */
-  DECL_CHAIN (ent->label_decl) = BLOCK_VARS (block);
-  BLOCK_VARS (block) = ent->label_decl;
-
-  named_labels->clear_slot (slot);
-
-  return 1;
-}
 
 static void
 pop_labels (tree block)
 {
   if (named_labels)
     {
-      named_labels->traverse<tree, pop_labels_1> (block);
+      auto_vec<named_label_entry **, 32> labels;
+      named_label_entry **slot;
+      unsigned int i;
+
+      /* Push all the labels into a vector and sort them by DECL_UID,
+	 so that gaps between DECL_UIDs don't affect code generation.  */
+      labels.reserve_exact (named_labels->elements ());
+      named_labels->traverse<vec<named_label_entry **> &, note_label> (labels);
+      labels.qsort (sort_labels);
+      FOR_EACH_VEC_ELT (labels, i, slot)
+	{
+	  struct named_label_entry *ent = *slot;
+
+	  pop_label (ent->label_decl, NULL_TREE);
+
+	  /* Put the labels into the "variables" of the top-level block,
+	     so debugger can see them.  */
+	  DECL_CHAIN (ent->label_decl) = BLOCK_VARS (block);
+	  BLOCK_VARS (block) = ent->label_decl;
+
+	  named_labels->clear_slot (slot);
+	}
       named_labels = NULL;
     }
 }
@@ -1207,16 +1230,19 @@ check_redeclaration_exception_specification (tree new_decl,
      specialization, of that function shall have an
      exception-specification with the same set of type-ids.  */
   if (! DECL_IS_BUILTIN (old_decl)
-      && flag_exceptions
       && !comp_except_specs (new_exceptions, old_exceptions, ce_normal))
     {
       const char *msg
 	= "declaration of %q+F has a different exception specifier";
       bool complained = true;
-      if (! DECL_IN_SYSTEM_HEADER (old_decl))
-	error (msg, new_decl);
-      else
+      if (DECL_IN_SYSTEM_HEADER (old_decl))
 	complained = pedwarn (0, OPT_Wsystem_headers, msg, new_decl);
+      else if (!flag_exceptions)
+	/* We used to silently permit mismatched eh specs with
+	   -fno-exceptions, so make them a pedwarn now.  */
+	complained = pedwarn (0, OPT_Wpedantic, msg, new_decl);
+      else
+	error (msg, new_decl);
       if (complained)
 	inform (0, "from previous declaration %q+F", old_decl);
     }
@@ -2033,7 +2059,16 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	 at newdecl, which will be ggc_freed.  */
       if (TREE_CODE (newdecl) == TYPE_DECL)
 	{
+	  /* But NEWTYPE might have an attribute, honor that.  */
+	  tree tem = TREE_TYPE (newdecl);
 	  newtype = oldtype;
+
+	  if (TYPE_USER_ALIGN (tem))
+	    {
+	      if (TYPE_ALIGN (tem) > TYPE_ALIGN (newtype))
+		SET_TYPE_ALIGN (newtype, TYPE_ALIGN (tem));
+	      TYPE_USER_ALIGN (newtype) = true;
+	    }
 
 	  /* And remove the new type from the variants list.  */
 	  if (TYPE_NAME (TREE_TYPE (newdecl)) == newdecl)
@@ -2455,7 +2490,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   /* Likewise for DECL_ALIGN, DECL_USER_ALIGN and DECL_PACKED.  */
   if (DECL_ALIGN (olddecl) > DECL_ALIGN (newdecl))
     {
-      DECL_ALIGN (newdecl) = DECL_ALIGN (olddecl);
+      SET_DECL_ALIGN (newdecl, DECL_ALIGN (olddecl));
       DECL_USER_ALIGN (newdecl) |= DECL_USER_ALIGN (olddecl);
     }
   DECL_USER_ALIGN (olddecl) = DECL_USER_ALIGN (newdecl);
@@ -2646,7 +2681,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 
      Before releasing the node, be sore to remove function from symbol
      table that might have been inserted there to record comdat group.
-     Be sure to however do not free DECL_STRUCT_FUNCTION becuase this
+     Be sure to however do not free DECL_STRUCT_FUNCTION because this
      structure is shared in between newdecl and oldecl.  */
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     DECL_STRUCT_FUNCTION (newdecl) = NULL;
@@ -3884,7 +3919,7 @@ record_unknown_type (tree type, const char* name)
   DECL_IGNORED_P (decl) = 1;
   TYPE_DECL_SUPPRESS_DEBUG (decl) = 1;
   TYPE_SIZE (type) = TYPE_SIZE (void_type_node);
-  TYPE_ALIGN (type) = 1;
+  SET_TYPE_ALIGN (type, 1);
   TYPE_USER_ALIGN (type) = 0;
   SET_TYPE_MODE (type, TYPE_MODE (void_type_node));
 }
@@ -4139,7 +4174,7 @@ cxx_init_decl_processing (void)
     TYPE_UNSIGNED (nullptr_type_node) = 1;
     TYPE_PRECISION (nullptr_type_node) = GET_MODE_BITSIZE (ptr_mode);
     if (abi_version_at_least (9))
-      TYPE_ALIGN (nullptr_type_node) = GET_MODE_ALIGNMENT (ptr_mode);
+      SET_TYPE_ALIGN (nullptr_type_node, GET_MODE_ALIGNMENT (ptr_mode));
     SET_TYPE_MODE (nullptr_type_node, ptr_mode);
     record_builtin_type (RID_MAX, "decltype(nullptr)", nullptr_type_node);
     nullptr_node = build_int_cst (nullptr_type_node, 0);
@@ -6256,8 +6291,11 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
     return;
 
   /* We defer emission of local statics until the corresponding
-     DECL_EXPR is expanded.  */
-  defer_p = DECL_FUNCTION_SCOPE_P (decl) || DECL_VIRTUAL_P (decl);
+     DECL_EXPR is expanded.  But with constexpr its function might never
+     be expanded, so go ahead and tell cgraph about the variable now.  */
+  defer_p = ((DECL_FUNCTION_SCOPE_P (decl)
+	      && !DECL_DECLARED_CONSTEXPR_P (DECL_CONTEXT (decl)))
+	     || DECL_VIRTUAL_P (decl));
 
   /* Defer template instantiations.  */
   if (DECL_LANG_SPECIFIC (decl)
@@ -6497,6 +6535,19 @@ is_concept_var (tree decl)
 	  // Not all variables have DECL_LANG_SPECIFIC.
           && DECL_LANG_SPECIFIC (decl)
           && DECL_DECLARED_CONCEPT_P (decl));
+}
+
+/* A helper function to be called via walk_tree.  If any label exists
+   under *TP, it is (going to be) forced.  Set has_forced_label_in_static.  */
+
+static tree
+notice_forced_label_r (tree *tp, int *walk_subtrees, void *)
+{
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  if (TREE_CODE (*tp) == LABEL_DECL)
+    cfun->has_forced_label_in_static = 1;
+  return NULL_TREE;
 }
 
 /* Finish processing of a declaration;
@@ -6744,13 +6795,17 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  && !DECL_ARTIFICIAL (decl))
 	{
 	  push_local_name (decl);
-	  if (DECL_CONSTRUCTOR_P (current_function_decl)
-	      || DECL_DESTRUCTOR_P (current_function_decl))
-	    /* Normally local_decls is populated during GIMPLE lowering,
-	       but [cd]tors are never actually compiled directly.  We need
-	       to put statics on the list so we can deal with the label
-	       address extension.  FIXME.  */
-	    add_local_decl (cfun, decl);
+	  /* Normally has_forced_label_in_static is set during GIMPLE
+	     lowering, but [cd]tors are never actually compiled directly.
+	     We need to set this early so we can deal with the label
+	     address extension.  */
+	  if ((DECL_CONSTRUCTOR_P (current_function_decl)
+	       || DECL_DESTRUCTOR_P (current_function_decl))
+	      && init)
+	    {
+	      walk_tree (&init, notice_forced_label_r, NULL, NULL);
+	      add_local_decl (cfun, decl);
+	    }
 	  /* And make sure it's in the symbol table for
 	     c_parse_final_cleanups to find.  */
 	  varpool_node::get_create (decl);
@@ -7869,7 +7924,7 @@ grokfndecl (tree ctype,
       parms = parm;
 
       /* Allocate space to hold the vptr bit if needed.  */
-      DECL_ALIGN (decl) = MINIMUM_METHOD_BOUNDARY;
+      SET_DECL_ALIGN (decl, MINIMUM_METHOD_BOUNDARY);
     }
   DECL_ARGUMENTS (decl) = parms;
   for (t = parms; t; t = DECL_CHAIN (t))
@@ -12590,6 +12645,20 @@ lookup_and_check_tag (enum tag_types tag_code, tree name,
 					   decl,
 					   template_header_p
 					   | DECL_SELF_REFERENCE_P (decl));
+      if (template_header_p && t && CLASS_TYPE_P (t)
+	  && (!CLASSTYPE_TEMPLATE_INFO (t)
+	      || (!PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (t)))))
+	{
+	  error ("%qT is not a template", t);
+	  inform (location_of (t), "previous declaration here");
+	  if (TYPE_CLASS_SCOPE_P (t)
+	      && CLASSTYPE_TEMPLATE_INFO (TYPE_CONTEXT (t)))
+	    inform (input_location,
+		    "perhaps you want to explicitly add %<%T::%>",
+		    TYPE_CONTEXT (t));
+	  t = error_mark_node;
+	}
+
       return t;
     }
   else if (decl && TREE_CODE (decl) == TREE_LIST)
@@ -13046,7 +13115,7 @@ copy_type_enum (tree dst, tree src)
 	valign = MAX (valign, TYPE_ALIGN (t));
       else
 	TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (src);
-      TYPE_ALIGN (t) = valign;
+      SET_TYPE_ALIGN (t, valign);
       TYPE_UNSIGNED (t) = TYPE_UNSIGNED (src);
     }
 }
@@ -13184,7 +13253,10 @@ start_enum (tree name, tree enumtype, tree underlying_type,
 
   if (underlying_type)
     {
-      if (CP_INTEGRAL_TYPE_P (underlying_type))
+      if (ENUM_UNDERLYING_TYPE (enumtype))
+	/* We already checked that it matches, don't change it to a different
+	   typedef variant.  */;
+      else if (CP_INTEGRAL_TYPE_P (underlying_type))
         {
 	  copy_type_enum (enumtype, underlying_type);
           ENUM_UNDERLYING_TYPE (enumtype) = underlying_type;
@@ -13698,6 +13770,43 @@ implicit_default_ctor_p (tree fn)
 	  && sufficient_parms_p (FUNCTION_FIRST_USER_PARMTYPE (fn)));
 }
 
+/* Clobber the contents of *this to let the back end know that the object
+   storage is dead when we enter the constructor or leave the destructor.  */
+
+static tree
+build_clobber_this ()
+{
+  /* Clobbering an empty base is pointless, and harmful if its one byte
+     TYPE_SIZE overlays real data.  */
+  if (is_empty_class (current_class_type))
+    return void_node;
+
+  /* If we have virtual bases, clobber the whole object, but only if we're in
+     charge.  If we don't have virtual bases, clobber the as-base type so we
+     don't mess with tail padding.  */
+  bool vbases = CLASSTYPE_VBASECLASSES (current_class_type);
+
+  tree ctype = current_class_type;
+  if (!vbases)
+    ctype = CLASSTYPE_AS_BASE (ctype);
+
+  tree clobber = build_constructor (ctype, NULL);
+  TREE_THIS_VOLATILE (clobber) = true;
+
+  tree thisref = current_class_ref;
+  if (ctype != current_class_type)
+    {
+      thisref = build_nop (build_reference_type (ctype), current_class_ptr);
+      thisref = convert_from_reference (thisref);
+    }
+
+  tree exprstmt = build2 (MODIFY_EXPR, void_type_node, thisref, clobber);
+  if (vbases)
+    exprstmt = build_if_in_charge (exprstmt);
+
+  return exprstmt;
+}
+
 /* Create the FUNCTION_DECL for a function definition.
    DECLSPECS and DECLARATOR are the parts of the declaration;
    they describe the function's name and the type it returns,
@@ -14095,31 +14204,30 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   if (DECL_DESTRUCTOR_P (decl1)
       || (DECL_CONSTRUCTOR_P (decl1)
 	  && targetm.cxx.cdtor_returns_this ()))
-    {
-      cdtor_label = create_artificial_label (input_location);
-    }
+    cdtor_label = create_artificial_label (input_location);
 
   start_fname_decls ();
 
   store_parm_decls (current_function_parms);
 
   if (!processing_template_decl
-      && flag_lifetime_dse && DECL_CONSTRUCTOR_P (decl1)
+      && (flag_lifetime_dse > 1)
+      && DECL_CONSTRUCTOR_P (decl1)
+      && !DECL_CLONED_FUNCTION_P (decl1)
+      /* Clobbering an empty base is harmful if it overlays real data.  */
+      && !is_empty_class (current_class_type)
       /* We can't clobber safely for an implicitly-defined default constructor
 	 because part of the initialization might happen before we enter the
 	 constructor, via AGGR_INIT_ZERO_FIRST (c++/68006).  */
       && !implicit_default_ctor_p (decl1))
-    {
-      /* Insert a clobber to let the back end know that the object storage
-	 is dead when we enter the constructor.  */
-      tree btype = CLASSTYPE_AS_BASE (current_class_type);
-      tree clobber = build_constructor (btype, NULL);
-      TREE_THIS_VOLATILE (clobber) = true;
-      tree bref = build_nop (build_reference_type (btype), current_class_ptr);
-      bref = convert_from_reference (bref);
-      tree exprstmt = build2 (MODIFY_EXPR, btype, bref, clobber);
-      finish_expr_stmt (exprstmt);
-    }
+    finish_expr_stmt (build_clobber_this ());
+
+  if (!processing_template_decl
+      && DECL_CONSTRUCTOR_P (decl1)
+      && (flag_sanitize & SANITIZE_VPTR)
+      && !DECL_CLONED_FUNCTION_P (decl1)
+      && !implicit_default_ctor_p (decl1))
+    cp_ubsan_maybe_initialize_vtbl_ptrs (current_class_ptr);
 
   return true;
 }
@@ -14329,19 +14437,10 @@ begin_destructor_body (void)
       initialize_vtbl_ptrs (current_class_ptr);
       finish_compound_stmt (compound_stmt);
 
-      if (flag_lifetime_dse)
-	{
-	  /* Insert a cleanup to let the back end know that the object is dead
-	     when we exit the destructor, either normally or via exception.  */
-	  tree btype = CLASSTYPE_AS_BASE (current_class_type);
-	  tree clobber = build_constructor (btype, NULL);
-	  TREE_THIS_VOLATILE (clobber) = true;
-	  tree bref = build_nop (build_reference_type (btype),
-				 current_class_ptr);
-	  bref = convert_from_reference (bref);
-	  tree exprstmt = build2 (MODIFY_EXPR, btype, bref, clobber);
-	  finish_decl_cleanup (NULL_TREE, exprstmt);
-	}
+      if (flag_lifetime_dse
+	  /* Clobbering an empty base is harmful if it overlays real data.  */
+	  && !is_empty_class (current_class_type))
+	finish_decl_cleanup (NULL_TREE, build_clobber_this ());
 
       /* And insert cleanups for our bases and members so that they
 	 will be properly destroyed if we throw.  */
@@ -14360,35 +14459,6 @@ finish_destructor_body (void)
   /* Any return from a destructor will end up here; that way all base
      and member cleanups will be run when the function returns.  */
   add_stmt (build_stmt (input_location, LABEL_EXPR, cdtor_label));
-
-  /* In a virtual destructor, we must call delete.  */
-  if (DECL_VIRTUAL_P (current_function_decl))
-    {
-      tree if_stmt;
-      tree virtual_size = cxx_sizeof (current_class_type);
-
-      /* [class.dtor]
-
-      At the point of definition of a virtual destructor (including
-      an implicit definition), non-placement operator delete shall
-      be looked up in the scope of the destructor's class and if
-      found shall be accessible and unambiguous.  */
-      exprstmt = build_op_delete_call (DELETE_EXPR, current_class_ptr,
-				       virtual_size,
-				       /*global_p=*/false,
-				       /*placement=*/NULL_TREE,
-				       /*alloc_fn=*/NULL_TREE,
-				       tf_warning_or_error);
-
-      if_stmt = begin_if_stmt ();
-      finish_if_stmt_cond (build2 (BIT_AND_EXPR, integer_type_node,
-				   current_in_charge_parm,
-				   integer_one_node),
-			   if_stmt);
-      finish_expr_stmt (exprstmt);
-      finish_then_clause (if_stmt);
-      finish_if_stmt (if_stmt);
-    }
 
   if (targetm.cxx.cdtor_returns_this ())
     {
@@ -14533,9 +14603,6 @@ finish_function (int flags)
 
   if (c_dialect_objc ())
     objc_finish_function ();
-
-  gcc_assert (!defer_mark_used_calls);
-  defer_mark_used_calls = true;
 
   record_key_method_defined (fndecl);
 
@@ -14786,17 +14853,6 @@ finish_function (int flags)
   /* Clean up.  */
   current_function_decl = NULL_TREE;
 
-  defer_mark_used_calls = false;
-  if (deferred_mark_used_calls)
-    {
-      unsigned int i;
-      tree decl;
-
-      FOR_EACH_VEC_SAFE_ELT (deferred_mark_used_calls, i, decl)
-	mark_used (decl);
-      vec_free (deferred_mark_used_calls);
-    }
-
   invoke_plugin_callbacks (PLUGIN_FINISH_PARSE_FUNCTION, fndecl);
   return fndecl;
 }
@@ -14965,7 +15021,8 @@ complete_vars (tree type)
 
 /* If DECL is of a type which needs a cleanup, build and return an
    expression to perform that cleanup here.  Return NULL_TREE if no
-   cleanup need be done.  */
+   cleanup need be done.  DECL can also be a _REF when called from
+   split_nonconstant_init_1.  */
 
 tree
 cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
@@ -14983,7 +15040,10 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
   /* Handle "__attribute__((cleanup))".  We run the cleanup function
      before the destructor since the destructor is what actually
      terminates the lifetime of the object.  */
-  attr = lookup_attribute ("cleanup", DECL_ATTRIBUTES (decl));
+  if (DECL_P (decl))
+    attr = lookup_attribute ("cleanup", DECL_ATTRIBUTES (decl));
+  else
+    attr = NULL_TREE;
   if (attr)
     {
       tree id;
@@ -15042,6 +15102,7 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
   protected_set_expr_location (cleanup, UNKNOWN_LOCATION);
 
   if (cleanup
+      && DECL_P (decl)
       && !lookup_attribute ("warn_unused", TYPE_ATTRIBUTES (TREE_TYPE (decl)))
       /* Treat objects with destructors as used; the destructor may do
 	 something substantive.  */

@@ -688,14 +688,9 @@ split_nonconstant_init_1 (tree dest, tree init)
 		  code = build_stmt (input_location, EXPR_STMT, code);
 		  code = maybe_cleanup_point_expr_void (code);
 		  add_stmt (code);
-		  if (type_build_dtor_call (inner_type))
-		    {
-		      code = (build_special_member_call
-			      (sub, complete_dtor_identifier, NULL, inner_type,
-			       LOOKUP_NORMAL, tf_warning_or_error));
-		      if (!TYPE_HAS_TRIVIAL_DESTRUCTOR (inner_type))
-			finish_eh_cleanup (code);
-		    }
+		  if (tree cleanup
+		      = cxx_maybe_build_cleanup (sub, tf_warning_or_error))
+		    finish_eh_cleanup (cleanup);
 		}
 
 	      num_split_elts++;
@@ -1499,9 +1494,24 @@ process_init_constructor_union (tree type, tree init,
   constructor_elt *ce;
   int len;
 
-  /* If the initializer was empty, use default zero initialization.  */
+  /* If the initializer was empty, use the union's NSDMI if it has one.
+     Otherwise use default zero initialization.  */
   if (vec_safe_is_empty (CONSTRUCTOR_ELTS (init)))
-    return 0;
+    {
+      for (tree field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+	{
+	  if (DECL_INITIAL (field))
+	    {
+	      CONSTRUCTOR_APPEND_ELT (CONSTRUCTOR_ELTS (init),
+				      field,
+				      get_nsdmi (field, /*in_ctor=*/false));
+	      break;
+	    }
+	}
+
+      if (vec_safe_is_empty (CONSTRUCTOR_ELTS (init)))
+	return 0;
+    }
 
   len = CONSTRUCTOR_ELTS (init)->length ();
   if (len > 1)
@@ -1694,10 +1704,7 @@ build_x_arrow (location_t loc, tree expr, tsubst_flags_t complain)
 
   if (processing_template_decl)
     {
-      if (type && TREE_CODE (type) == POINTER_TYPE
-	  && !dependent_scope_p (TREE_TYPE (type)))
-	/* Pointer to current instantiation, don't treat as dependent.  */;
-      else if (type_dependent_expression_p (expr))
+      if (type_dependent_expression_p (expr))
 	return build_min_nt_loc (loc, ARROW_EXPR, expr);
       expr = build_non_dependent_expr (expr);
     }
@@ -2131,7 +2138,7 @@ merge_exception_specifiers (tree list, tree add)
     return add;
   noex = TREE_PURPOSE (list);
   gcc_checking_assert (!TREE_PURPOSE (add)
-		       || errorcount
+		       || errorcount || !flag_exceptions
 		       || cp_tree_equal (noex, TREE_PURPOSE (add)));
 
   /* Combine the dynamic-exception-specifiers, if any.  */

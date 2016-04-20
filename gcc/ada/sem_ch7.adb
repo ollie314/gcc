@@ -777,9 +777,10 @@ package body Sem_Ch7 is
 
       if Present (SPARK_Pragma (Body_Id)) then
          if Present (SPARK_Aux_Pragma (Spec_Id)) then
-            if Get_SPARK_Mode_From_Pragma (SPARK_Aux_Pragma (Spec_Id)) = Off
-                 and then
-               Get_SPARK_Mode_From_Pragma (SPARK_Pragma (Body_Id)) = On
+            if Get_SPARK_Mode_From_Annotation (SPARK_Aux_Pragma (Spec_Id)) =
+                 Off
+              and then
+                Get_SPARK_Mode_From_Annotation (SPARK_Pragma (Body_Id)) = On
             then
                Error_Msg_Sloc := Sloc (SPARK_Pragma (Body_Id));
                Error_Msg_N ("incorrect application of SPARK_Mode#", N);
@@ -936,7 +937,8 @@ package body Sem_Ch7 is
    ---------------------------------
 
    procedure Analyze_Package_Declaration (N : Node_Id) is
-      Id : constant Node_Id := Defining_Entity (N);
+      Id  : constant Node_Id := Defining_Entity (N);
+      Par : constant Node_Id := Parent_Spec (N);
 
       Body_Required : Boolean;
       --  True when this package declaration requires a corresponding body
@@ -971,10 +973,13 @@ package body Sem_Ch7 is
          Set_SPARK_Aux_Pragma_Inherited (Id);
       end if;
 
-      --  A package declared within a Ghost refion is automatically Ghost
-      --  (SPARK RM 6.9(2)).
+      --  A package declared within a Ghost refion is automatically Ghost. A
+      --  child package is Ghost when its parent is Ghost (SPARK RM 6.9(2)).
 
-      if Ghost_Mode > None then
+      if Ghost_Mode > None
+        or else (Present (Par)
+                  and then Is_Ghost_Entity (Defining_Entity (Unit (Par))))
+      then
          Set_Is_Ghost_Entity (Id);
       end if;
 

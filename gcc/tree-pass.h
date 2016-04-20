@@ -108,11 +108,6 @@ public:
   /* Static pass number, used as a fragment of the dump file name.  */
   int static_pass_number;
 
-  /* When a given dump file is being initialized, this flag is set to
-     true if the corresponding TDF_graph dump file has also been
-     initialized.  */
-  bool graph_dump_initialized;
-
 protected:
   gcc::context *m_ctxt;
 };
@@ -472,6 +467,7 @@ extern gimple_opt_pass *make_pass_oacc_kernels (gcc::context *ctxt);
 extern simple_ipa_opt_pass *make_pass_ipa_oacc (gcc::context *ctxt);
 extern simple_ipa_opt_pass *make_pass_ipa_oacc_kernels (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_gen_hsail (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_warn_nonnull_compare (gcc::context *ctxt);
 
 /* IPA Passes */
 extern simple_ipa_opt_pass *make_pass_ipa_lower_emutls (gcc::context *ctxt);

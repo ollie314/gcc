@@ -62,7 +62,7 @@ package Sem_Util is
 
    function Address_Integer_Convert_OK (T1, T2 : Entity_Id) return Boolean;
    --  Given two types, returns True if we are in Allow_Integer_Address mode
-   --  and one of the types is (a descendent of) System.Address (and this type
+   --  and one of the types is (a descendant of) System.Address (and this type
    --  is private), and the other type is any integer type.
 
    function Addressable (V : Uint) return Boolean;
@@ -135,7 +135,9 @@ package Sem_Util is
    --  is present, this is used instead. Warn is normally False. If it is
    --  True then the message is treated as a warning even though it does
    --  not end with a ? (this is used when the caller wants to parameterize
-   --  whether an error or warning is given).
+   --  whether an error or warning is given), or when the message should be
+   --  treated as a warning even when SPARK_Mode is On (which otherwise would
+   --  force an error).
 
    function Async_Readers_Enabled (Id : Entity_Id) return Boolean;
    --  Given the entity of an abstract state or a variable, determine whether
@@ -446,6 +448,9 @@ package Sem_Util is
 
    function Current_Scope return Entity_Id;
    --  Get entity representing current scope
+
+   function Current_Scope_No_Loops return Entity_Id;
+   --  Return the current scope ignoring internally generated loops
 
    function Current_Subprogram return Entity_Id;
    --  Returns current enclosing subprogram. If Current_Scope is a subprogram,
@@ -1147,8 +1152,8 @@ package Sem_Util is
    --  Returns true if the Typ_Ent implements interface Iface_Ent
 
    function In_Assertion_Expression_Pragma (N : Node_Id) return Boolean;
-   --  Determine whether an arbitrary node appears in a pragma that acts as an
-   --  assertion expression. See Sem_Prag for the list of qualifying pragmas.
+   --  Returns True if node N appears within a pragma that acts as an assertion
+   --  expression. See Sem_Prag for the list of qualifying pragmas.
 
    function In_Instance return Boolean;
    --  Returns True if the current scope is within a generic instance
@@ -1173,6 +1178,10 @@ package Sem_Util is
 
    function In_Pragma_Expression (N : Node_Id; Nam : Name_Id) return Boolean;
    --  Returns true if the expression N occurs within a pragma with name Nam
+
+   function In_Pre_Post_Condition (N : Node_Id) return Boolean;
+   --  Returns True if node N appears within a pre/postcondition pragma. Note
+   --  the pragma Check equivalents are NOT considered.
 
    function In_Reverse_Storage_Order_Object (N : Node_Id) return Boolean;
    --  Returns True if N denotes a component or subcomponent in a record or
@@ -1327,16 +1336,16 @@ package Sem_Util is
    --  access value (selected/indexed component, explicit dereference or a
    --  slice), and false otherwise.
 
-   function Is_Descendent_Of (T1 : Entity_Id; T2 : Entity_Id) return Boolean;
-   --  Returns True if type T1 is a descendent of type T2, and false otherwise.
-   --  This is the RM definition, a type is a descendent of another type if it
-   --  is the same type or is derived from a descendent of the other type.
+   function Is_Descendant_Of (T1 : Entity_Id; T2 : Entity_Id) return Boolean;
+   --  Returns True if type T1 is a descendant of type T2, and false otherwise.
+   --  This is the RM definition, a type is a descendant of another type if it
+   --  is the same type or is derived from a descendant of the other type.
 
    function Is_Descendant_Of_Suspension_Object
      (Typ : Entity_Id) return Boolean;
    --  Determine whether type Typ is a descendant of type Suspension_Object
    --  defined in Ada.Synchronous_Task_Control. This version is different from
-   --  Is_Descendent_Of as the detection of Suspension_Object does not involve
+   --  Is_Descendant_Of as the detection of Suspension_Object does not involve
    --  an entity and by extension a call to RTSfind.
 
    function Is_Double_Precision_Floating_Point_Type
@@ -1366,6 +1375,11 @@ package Sem_Util is
 
    function Is_Entry_Declaration (Id : Entity_Id) return Boolean;
    --  Determine whether entity Id is the spec entity of an entry [family]
+
+   function Is_Expanded_Priority_Attribute (E : Entity_Id) return Boolean;
+   --  Check whether a function in a call is an expanded priority attribute,
+   --  which is transformed into an Rtsfind call to Get_Ceiling. This expansion
+   --  does not take place in a configurable runtime.
 
    function Is_Expression_Function (Subp : Entity_Id) return Boolean;
    --  Determine whether subprogram [body] Subp denotes an expression function
@@ -1468,6 +1482,13 @@ package Sem_Util is
    --  this is a case in which conversions whose expression is a variable (in
    --  the Is_Variable sense) with an untagged type target are considered view
    --  conversions and hence variables.
+
+   function Is_OK_Volatile_Context
+     (Context : Node_Id;
+      Obj_Ref : Node_Id) return Boolean;
+   --  Determine whether node Context denotes a "non-interfering context" (as
+   --  defined in SPARK RM 7.1.3(12)) where volatile reference Obj_Ref can
+   --  safely reside.
 
    function Is_Package_Contract_Annotation (Item : Node_Id) return Boolean;
    --  Determine whether aspect specification or pragma Item is one of the
@@ -1778,10 +1799,10 @@ package Sem_Util is
       New_Sloc  : Source_Ptr := No_Location;
       New_Scope : Entity_Id  := Empty) return Node_Id;
    --  Given a node that is the root of a subtree, Copy_Tree copies the entire
-   --  syntactic subtree, including recursively any descendents whose parent
-   --  field references a copied node (descendents not linked to a copied node
+   --  syntactic subtree, including recursively any descendants whose parent
+   --  field references a copied node (descendants not linked to a copied node
    --  by the parent field are not copied, instead the copied tree references
-   --  the same descendent as the original in this case, which is appropriate
+   --  the same descendant as the original in this case, which is appropriate
    --  for non-syntactic fields such as Etype). The parent pointers in the
    --  copy are properly set. Copy_Tree (Empty/Error) returns Empty/Error.
    --  The one exception to the rule of not copying semantic fields is that
@@ -2278,5 +2299,8 @@ package Sem_Util is
    --      whose components are of a type that yields a synchronized object.
    --    * A synchronized interface type
    --    * A task type
+
+   function Yields_Universal_Type (N : Node_Id) return Boolean;
+   --  Determine whether unanalyzed node N yields a universal type
 
 end Sem_Util;

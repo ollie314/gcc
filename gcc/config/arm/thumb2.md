@@ -370,7 +370,7 @@
 
 (define_insn_and_split "*thumb2_mov_scc"
   [(set (match_operand:SI 0 "s_register_operand" "=l,r")
-	(match_operator:SI 1 "arm_comparison_operator"
+	(match_operator:SI 1 "arm_comparison_operator_mode"
 	 [(match_operand 2 "cc_register" "") (const_int 0)]))]
   "TARGET_THUMB2"
   "#"   ; "ite\\t%D1\;mov%D1\\t%0, #0\;mov%d1\\t%0, #1"
@@ -388,7 +388,7 @@
 
 (define_insn_and_split "*thumb2_mov_negscc"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
-	(neg:SI (match_operator:SI 1 "arm_comparison_operator"
+	(neg:SI (match_operator:SI 1 "arm_comparison_operator_mode"
 		 [(match_operand 2 "cc_register" "") (const_int 0)])))]
   "TARGET_THUMB2 && !arm_restrict_it"
   "#"   ; "ite\\t%D1\;mov%D1\\t%0, #0\;mvn%d1\\t%0, #0"
@@ -407,7 +407,7 @@
 
 (define_insn_and_split "*thumb2_mov_negscc_strict_it"
   [(set (match_operand:SI 0 "low_register_operand" "=l")
-	(neg:SI (match_operator:SI 1 "arm_comparison_operator"
+	(neg:SI (match_operator:SI 1 "arm_comparison_operator_mode"
 		 [(match_operand 2 "cc_register" "") (const_int 0)])))]
   "TARGET_THUMB2 && arm_restrict_it"
   "#"   ; ";mvn\\t%0, #0 ;it\\t%D1\;mov%D1\\t%0, #0\"
@@ -436,7 +436,7 @@
 
 (define_insn_and_split "*thumb2_mov_notscc"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
-	(not:SI (match_operator:SI 1 "arm_comparison_operator"
+	(not:SI (match_operator:SI 1 "arm_comparison_operator_mode"
 		 [(match_operand 2 "cc_register" "") (const_int 0)])))]
   "TARGET_THUMB2 && !arm_restrict_it"
   "#"   ; "ite\\t%D1\;mvn%D1\\t%0, #0\;mvn%d1\\t%0, #1"
@@ -456,7 +456,7 @@
 
 (define_insn_and_split "*thumb2_mov_notscc_strict_it"
   [(set (match_operand:SI 0 "low_register_operand" "=l")
-        (not:SI (match_operator:SI 1 "arm_comparison_operator"
+	(not:SI (match_operator:SI 1 "arm_comparison_operator_mode"
                  [(match_operand 2 "cc_register" "") (const_int 0)])))]
   "TARGET_THUMB2 && arm_restrict_it"
   "#"   ; "mvn %0, #0 ; it%d1 ; lsl%d1 %0, %0, #1"
@@ -1550,7 +1550,8 @@
 		      (match_operand 5 "" "")
 		      (match_operand 6 "" "")))]
   "TARGET_THUMB2
-   && (INTVAL (operands[2]) >= 0 && INTVAL (operands[2]) < 32)"
+   && (INTVAL (operands[2]) >= 0 && INTVAL (operands[2]) < 32)
+   && peep2_reg_dead_p (2, operands[0])"
   [(parallel [(set (match_dup 0)
 		   (compare:CC_NOOV (ashift:SI (match_dup 1) (match_dup 2))
 				    (const_int 0)))
@@ -1578,7 +1579,8 @@
 		      (match_operand 5 "" "")
 		      (match_operand 6 "" "")))]
   "TARGET_THUMB2
-   && (INTVAL (operands[2]) > 0 && INTVAL (operands[2]) < 32)"
+   && (INTVAL (operands[2]) > 0 && INTVAL (operands[2]) < 32)
+   && peep2_reg_dead_p (2, operands[0])"
   [(parallel [(set (match_dup 0)
 		   (compare:CC_NOOV (ashift:SI (match_dup 1) (match_dup 2))
 				    (const_int 0)))

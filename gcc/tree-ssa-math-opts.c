@@ -42,7 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 
    First of all, with some experiments it was found out that the
    transformation is not always useful if there are only two divisions
-   hy the same divisor.  This is probably because modern processors
+   by the same divisor.  This is probably because modern processors
    can pipeline the divisions; on older, in-order processors it should
    still be effective to optimize two divisions by the same number.
    We make this a param, and it shall be called N in the remainder of
@@ -2449,11 +2449,9 @@ find_bswap_or_nop_1 (gimple *stmt, struct symbolic_number *n, int limit)
 static gimple *
 find_bswap_or_nop (gimple *stmt, struct symbolic_number *n, bool *bswap)
 {
-  unsigned rsize;
-  uint64_t tmpn, mask;
-/* The number which the find_bswap_or_nop_1 result should match in order
-   to have a full byte swap.  The number is shifted to the right
-   according to the size of the symbolic number before using it.  */
+  /* The number which the find_bswap_or_nop_1 result should match in order
+     to have a full byte swap.  The number is shifted to the right
+     according to the size of the symbolic number before using it.  */
   uint64_t cmpxchg = CMPXCHG;
   uint64_t cmpnop = CMPNOP;
 
@@ -2474,36 +2472,26 @@ find_bswap_or_nop (gimple *stmt, struct symbolic_number *n, bool *bswap)
 
   /* Find real size of result (highest non-zero byte).  */
   if (n->base_addr)
-    for (tmpn = n->n, rsize = 0; tmpn; tmpn >>= BITS_PER_MARKER, rsize++);
-  else
-    rsize = n->range;
+    {
+      unsigned HOST_WIDE_INT rsize;
+      uint64_t tmpn;
 
-  /* Zero out the bits corresponding to untouched bytes in original gimple
-     expression.  */
+      for (tmpn = n->n, rsize = 0; tmpn; tmpn >>= BITS_PER_MARKER, rsize++);
+      if (BYTES_BIG_ENDIAN && n->range != rsize)
+	/* This implies an offset, which is currently not handled by
+	   bswap_replace.  */
+	return NULL;
+      n->range = rsize;
+    }
+
+  /* Zero out the extra bits of N and CMP*.  */
   if (n->range < (int) sizeof (int64_t))
     {
+      uint64_t mask;
+
       mask = ((uint64_t) 1 << (n->range * BITS_PER_MARKER)) - 1;
       cmpxchg >>= (64 / BITS_PER_MARKER - n->range) * BITS_PER_MARKER;
       cmpnop &= mask;
-    }
-
-  /* Zero out the bits corresponding to unused bytes in the result of the
-     gimple expression.  */
-  if (rsize < n->range)
-    {
-      if (BYTES_BIG_ENDIAN)
-	{
-	  mask = ((uint64_t) 1 << (rsize * BITS_PER_MARKER)) - 1;
-	  cmpxchg &= mask;
-	  cmpnop >>= (n->range - rsize) * BITS_PER_MARKER;
-	}
-      else
-	{
-	  mask = ((uint64_t) 1 << (rsize * BITS_PER_MARKER)) - 1;
-	  cmpxchg >>= (n->range - rsize) * BITS_PER_MARKER;
-	  cmpnop &= mask;
-	}
-      n->range = rsize;
     }
 
   /* A complete byte swap should make the symbolic number to start with
@@ -3839,7 +3827,7 @@ pass_optimize_widening_mul::execute (function *fun)
 	    {
 	      tree fndecl = gimple_call_fndecl (stmt);
 	      if (fndecl
-		  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
+		  && gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
 		{
 		  switch (DECL_FUNCTION_CODE (fndecl))
 		    {

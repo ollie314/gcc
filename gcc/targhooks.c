@@ -1031,7 +1031,10 @@ tree default_mangle_decl_assembler_name (tree decl ATTRIBUTE_UNUSED,
 HOST_WIDE_INT
 default_vector_alignment (const_tree type)
 {
-  return tree_to_shwi (TYPE_SIZE (type));
+  HOST_WIDE_INT align = tree_to_shwi (TYPE_SIZE (type));
+  if (align > MAX_OFILE_ALIGNMENT)
+    align = MAX_OFILE_ALIGNMENT;
+  return align;
 }
 
 bool
@@ -1853,7 +1856,7 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   if (boundary < TYPE_ALIGN (type))
     {
       type = build_variant_type_copy (type);
-      TYPE_ALIGN (type) = boundary;
+      SET_TYPE_ALIGN (type, boundary);
     }
 
   /* Compute the rounded size of the type.  */

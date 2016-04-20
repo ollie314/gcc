@@ -428,7 +428,7 @@ maybe_cleanup_point_expr_void (tree expr)
 void
 add_decl_expr (tree decl)
 {
-  tree r = build_stmt (input_location, DECL_EXPR, decl);
+  tree r = build_stmt (DECL_SOURCE_LOCATION (decl), DECL_EXPR, decl);
   if (DECL_INITIAL (decl)
       || (DECL_SIZE (decl) && TREE_SIDE_EFFECTS (DECL_SIZE (decl))))
     r = maybe_cleanup_point_expr_void (r);
@@ -1649,7 +1649,15 @@ force_paren_expr (tree expr)
 
   if (TREE_CODE (expr) == COMPONENT_REF)
     REF_PARENTHESIZED_P (expr) = true;
-  else if (type_dependent_expression_p (expr))
+  else if (type_dependent_expression_p (expr)
+	   /* When processing_template_decl, a SCOPE_REF may actually be
+	      referring to a non-static data member of the current class, in
+	      which case its TREE_TYPE may not be properly cv-qualified (the
+	      cv-qualifiers of the implicit *this object haven't yet been taken
+	      into account) so we have to delay building a static_cast until
+	      instantiation.  */
+	   || (processing_template_decl
+	       && TREE_CODE (expr) == SCOPE_REF))
     expr = build1 (PAREN_EXPR, TREE_TYPE (expr), expr);
   else if (VAR_P (expr) && DECL_HARD_REGISTER (expr))
     /* We can't bind a hard register variable to a reference.  */;
@@ -1671,6 +1679,30 @@ force_paren_expr (tree expr)
     }
 
   return expr;
+}
+
+/* If T is an id-expression obfuscated by force_paren_expr, undo the
+   obfuscation and return the underlying id-expression.  Otherwise
+   return T.  */
+
+tree
+maybe_undo_parenthesized_ref (tree t)
+{
+  if (cxx_dialect >= cxx14
+      && INDIRECT_REF_P (t)
+      && REF_PARENTHESIZED_P (t))
+    {
+      t = TREE_OPERAND (t, 0);
+      while (TREE_CODE (t) == NON_LVALUE_EXPR
+	     || TREE_CODE (t) == NOP_EXPR)
+	t = TREE_OPERAND (t, 0);
+
+      gcc_assert (TREE_CODE (t) == ADDR_EXPR
+		  || TREE_CODE (t) == STATIC_CAST_EXPR);
+      t = TREE_OPERAND (t, 0);
+    }
+
+  return t;
 }
 
 /* Finish a parenthesized expression EXPR.  */
@@ -2256,6 +2288,10 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 
   gcc_assert (!TYPE_P (fn));
 
+  /* If FN may be a FUNCTION_DECL obfuscated by force_paren_expr, undo
+     it so that we can tell this is a call to a known function.  */
+  fn = maybe_undo_parenthesized_ref (fn);
+
   orig_fn = fn;
 
   if (processing_template_decl)
@@ -2273,6 +2309,7 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 	     related to CWG issues 515 and 1005.  */
 	  || (TREE_CODE (fn) != COMPONENT_REF
 	      && non_static_member_function_p (fn)
+	      && !DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (get_first_fn (fn))
 	      && current_class_ref
 	      && type_dependent_expression_p (current_class_ref)))
 	{
@@ -2351,8 +2388,16 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 	[class.access.base] says that we need to convert 'this' to B* as
 	part of the access, so we pass 'B' to maybe_dummy_object.  */
 
-      object = maybe_dummy_object (BINFO_TYPE (BASELINK_ACCESS_BINFO (fn)),
-				   NULL);
+      if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (get_first_fn (fn)))
+	{
+	  /* A constructor call always uses a dummy object.  (This constructor
+	     call which has the form A::A () is actually invalid and we are
+	     going to reject it later in build_new_method_call.)  */
+	  object = build_dummy_object (BINFO_TYPE (BASELINK_ACCESS_BINFO (fn)));
+	}
+      else
+	object = maybe_dummy_object (BINFO_TYPE (BASELINK_ACCESS_BINFO (fn)),
+				     NULL);
 
       if (processing_template_decl)
 	{
@@ -3442,6 +3487,12 @@ finish_id_expression (tree id_expression,
       if (!scope && decl != error_mark_node && identifier_p (id_expression))
 	maybe_note_name_used_in_class (id_expression, decl);
 
+      /* A use in unevaluated operand might not be instantiated appropriately
+	 if tsubst_copy builds a dummy parm, or if we never instantiate a
+	 generic lambda, so mark it now.  */
+      if (processing_template_decl && cp_unevaluated_operand)
+	mark_type_use (decl);
+
       /* Disallow uses of local variables from containing functions, except
 	 within lambda-expressions.  */
       if (outer_automatic_var_p (decl))
@@ -4030,6 +4081,7 @@ simplify_aggr_init_expr (tree *tp)
 				    AGGR_INIT_EXPR_ARGP (aggr_init_expr));
   TREE_NOTHROW (call_expr) = TREE_NOTHROW (aggr_init_expr);
   CALL_EXPR_LIST_INIT_P (call_expr) = CALL_EXPR_LIST_INIT_P (aggr_init_expr);
+  CALL_FROM_THUNK_P (call_expr) = AGGR_INIT_FROM_THUNK_P (aggr_init_expr);
 
   if (style == ctor)
     {
@@ -6656,6 +6708,14 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	      remove = true;
 	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		   && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FORCE_DEVICEPTR
+		   && !type_dependent_expression_p (t)
+		   && !POINTER_TYPE_P (TREE_TYPE (t)))
+	    {
+	      error ("%qD is not a pointer variable", t);
+	      remove = true;
+	    }
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		   && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER)
 	    {
 	      if (bitmap_bit_p (&generic_head, DECL_UID (t))
@@ -8686,7 +8746,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
   /* Depending on the resolution of DR 1172, we may later need to distinguish
      instantiation-dependent but not type-dependent expressions so that, say,
      A<decltype(sizeof(T))>::U doesn't require 'typename'.  */
-  if (instantiation_dependent_expression_p (expr))
+  if (instantiation_dependent_uneval_expression_p (expr))
     {
       type = cxx_make_type (DECLTYPE_TYPE);
       DECLTYPE_TYPE_EXPR (type) = expr;

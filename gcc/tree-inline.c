@@ -616,7 +616,8 @@ remap_decls (tree decls, vec<tree, va_gc> **nonlocalized_list,
 	  /* We need to add this variable to the local decls as otherwise
 	     nothing else will do so.  */
 	  if (TREE_CODE (old_var) == VAR_DECL
-	      && ! DECL_EXTERNAL (old_var))
+	      && ! DECL_EXTERNAL (old_var)
+	      && cfun)
 	    add_local_decl (cfun, old_var);
 	  if ((!optimize || debug_info_level > DINFO_LEVEL_TERSE)
 	      && !DECL_IGNORED_P (old_var)
@@ -862,10 +863,16 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
   copy_body_data *id = (copy_body_data *) wi_p->info;
   tree fn = id->src_fn;
 
+  /* For recursive invocations this is no longer the LHS itself.  */
+  bool is_lhs = wi_p->is_lhs;
+  wi_p->is_lhs = false;
+
   if (TREE_CODE (*tp) == SSA_NAME)
     {
       *tp = remap_ssa_name (*tp, id);
       *walk_subtrees = 0;
+      if (is_lhs)
+	SSA_NAME_DEF_STMT (*tp) = wi_p->stmt;
       return NULL;
     }
   else if (auto_var_in_fn_p (*tp, fn))
@@ -1266,7 +1273,12 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	  /* Handle the case where we substituted an INDIRECT_REF
 	     into the operand of the ADDR_EXPR.  */
 	  if (TREE_CODE (TREE_OPERAND (*tp, 0)) == INDIRECT_REF)
-	    *tp = TREE_OPERAND (TREE_OPERAND (*tp, 0), 0);
+	    {
+	      tree t = TREE_OPERAND (TREE_OPERAND (*tp, 0), 0);
+	      if (TREE_TYPE (t) != TREE_TYPE (*tp))
+		t = fold_convert (remap_type (TREE_TYPE (*tp), id), t);
+	      *tp = t;
+	    }
 	  else
 	    recompute_tree_invariant_for_addr_expr (*tp);
 
@@ -2088,16 +2100,6 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 
 	  maybe_duplicate_eh_stmt_fn (cfun, stmt, id->src_cfun, orig_stmt,
 				      id->eh_map, id->eh_lp_nr);
-
-	  if (gimple_in_ssa_p (cfun) && !is_gimple_debug (stmt))
-	    {
-	      ssa_op_iter i;
-	      tree def;
-
-	      FOR_EACH_SSA_TREE_OPERAND (def, stmt, i, SSA_OP_DEF)
-		if (TREE_CODE (def) == SSA_NAME)
-		  SSA_NAME_DEF_STMT (def) = stmt;
-	    }
 
 	  gsi_next (&copy_gsi);
 	}
@@ -3499,33 +3501,13 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
   return use;
 }
 
-/* Callback through walk_tree.  Determine if a DECL_INITIAL makes reference
-   to a local label.  */
-
-static tree
-has_label_address_in_static_1 (tree *nodep, int *walk_subtrees, void *fnp)
-{
-  tree node = *nodep;
-  tree fn = (tree) fnp;
-
-  if (TREE_CODE (node) == LABEL_DECL && DECL_CONTEXT (node) == fn)
-    return node;
-
-  if (TYPE_P (node))
-    *walk_subtrees = 0;
-
-  return NULL_TREE;
-}
-
 /* Determine if the function can be copied.  If so return NULL.  If
    not return a string describng the reason for failure.  */
 
 const char *
-copy_forbidden (struct function *fun, tree fndecl)
+copy_forbidden (struct function *fun)
 {
   const char *reason = fun->cannot_be_copied_reason;
-  tree decl;
-  unsigned ix;
 
   /* Only examine the function once.  */
   if (fun->cannot_be_copied_set)
@@ -3544,19 +3526,12 @@ copy_forbidden (struct function *fun, tree fndecl)
       goto fail;
     }
 
-  FOR_EACH_LOCAL_DECL (fun, ix, decl)
-    if (TREE_CODE (decl) == VAR_DECL
-	&& TREE_STATIC (decl)
-	&& !DECL_EXTERNAL (decl)
-	&& DECL_INITIAL (decl)
-	&& walk_tree_without_duplicates (&DECL_INITIAL (decl),
-					 has_label_address_in_static_1,
-					 fndecl))
-      {
-	reason = G_("function %q+F can never be copied because it saves "
-		    "address of local label in a static variable");
-	goto fail;
-      }
+  if (fun->has_forced_label_in_static)
+    {
+      reason = G_("function %q+F can never be copied because it saves "
+		  "address of local label in a static variable");
+      goto fail;
+    }
 
  fail:
   fun->cannot_be_copied_reason = reason;
@@ -3700,7 +3675,7 @@ inline_forbidden_p (tree fndecl)
   bool forbidden_p = false;
 
   /* First check for shared reasons not to copy the code.  */
-  inline_forbidden_reason = copy_forbidden (fun, fndecl);
+  inline_forbidden_reason = copy_forbidden (fun);
   if (inline_forbidden_reason != NULL)
     return true;
 
@@ -4086,7 +4061,7 @@ estimate_num_insns (gimple *stmt, eni_weights *weights)
 	      return 0;
 	    else if (is_inexpensive_builtin (decl))
 	      return weights->target_builtin_call_cost;
-	    else if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+	    else if (gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
 	      {
 		/* We canonicalize x * x to pow (x, 2.0) with -ffast-math, so
 		   specialize the cheap expansion we do here.
@@ -5547,7 +5522,7 @@ bool
 tree_versionable_function_p (tree fndecl)
 {
   return (!lookup_attribute ("noclone", DECL_ATTRIBUTES (fndecl))
-	  && copy_forbidden (DECL_STRUCT_FUNCTION (fndecl), fndecl) == NULL);
+	  && copy_forbidden (DECL_STRUCT_FUNCTION (fndecl)) == NULL);
 }
 
 /* Delete all unreachable basic blocks and update callgraph.

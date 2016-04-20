@@ -518,15 +518,17 @@ composite_type (tree t1, tree t2)
 	/* If both args specify argument types, we must merge the two
 	   lists, argument by argument.  */
 
-	len = list_length (p1);
-	newargs = 0;
+	for (len = 0, newargs = p1;
+	     newargs && newargs != void_list_node;
+	     len++, newargs = TREE_CHAIN (newargs))
+	  ;
 
 	for (i = 0; i < len; i++)
 	  newargs = tree_cons (NULL_TREE, NULL_TREE, newargs);
 
 	n = newargs;
 
-	for (; p1;
+	for (; p1 && p1 != void_list_node;
 	     p1 = TREE_CHAIN (p1), p2 = TREE_CHAIN (p2), n = TREE_CHAIN (n))
 	  {
 	    /* A null type means arg type is not specified.
@@ -3068,6 +3070,16 @@ build_function_call_vec (location_t loc, vec<location_t> arg_loc,
     result = build_call_array_loc (loc, TREE_TYPE (fntype),
 				   function, nargs, argarray);
 
+  /* In this improbable scenario, a nested function returns a VM type.
+     Create a TARGET_EXPR so that the call always has a LHS, much as
+     what the C++ FE does for functions returning non-PODs.  */
+  if (variably_modified_type_p (TREE_TYPE (fntype), NULL_TREE))
+    {
+      tree tmp = create_tmp_var_raw (TREE_TYPE (fntype));
+      result = build4 (TARGET_EXPR, TREE_TYPE (fntype), tmp, result,
+		       NULL_TREE, NULL_TREE);
+    }
+
   if (VOID_TYPE_P (TREE_TYPE (result)))
     {
       if (TYPE_QUALS (TREE_TYPE (result)) != TYPE_UNQUALIFIED)
@@ -4424,8 +4436,8 @@ build_unary_op (location_t location,
 	case COMPONENT_REF:
 	  if (DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
 	    {
-	      error ("cannot take address of bit-field %qD",
-		     TREE_OPERAND (arg, 1));
+	      error_at (location, "cannot take address of bit-field %qD",
+			TREE_OPERAND (arg, 1));
 	      return error_mark_node;
 	    }
 
@@ -4437,15 +4449,16 @@ build_unary_op (location_t location,
 	      if (!AGGREGATE_TYPE_P (TREE_TYPE (arg))
 		  && !VECTOR_TYPE_P (TREE_TYPE (arg)))
 		{
-		  error ("cannot take address of scalar with reverse storage "
-			 "order");
+		  error_at (location, "cannot take address of scalar with "
+			    "reverse storage order");
 		  return error_mark_node;
 		}
 
 	      if (TREE_CODE (TREE_TYPE (arg)) == ARRAY_TYPE
 		  && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (arg)))
-		warning (OPT_Wscalar_storage_order, "address of array with "
-			"reverse scalar storage order requested");
+		warning_at (location, OPT_Wscalar_storage_order,
+			    "address of array with reverse scalar storage "
+			    "order requested");
 	    }
 
 	default:
@@ -9962,12 +9975,11 @@ c_finish_case (tree body, tree type)
 
 /* Emit an if statement.  IF_LOCUS is the location of the 'if'.  COND,
    THEN_BLOCK and ELSE_BLOCK are expressions to be used; ELSE_BLOCK
-   may be null.  NESTED_IF is true if THEN_BLOCK contains another IF
-   statement, and was not surrounded with parenthesis.  */
+   may be null.  */
 
 void
 c_finish_if_stmt (location_t if_locus, tree cond, tree then_block,
-		  tree else_block, bool nested_if)
+		  tree else_block)
 {
   tree stmt;
 
@@ -9998,39 +10010,6 @@ c_finish_if_stmt (location_t if_locus, tree cond, tree then_block,
 		    " and the else-block");
 	  return;
 	}
-    }
-  /* Diagnose an ambiguous else if if-then-else is nested inside if-then.  */
-  if (warn_parentheses && nested_if && else_block == NULL)
-    {
-      tree inner_if = then_block;
-
-      /* We know from the grammar productions that there is an IF nested
-	 within THEN_BLOCK.  Due to labels and c99 conditional declarations,
-	 it might not be exactly THEN_BLOCK, but should be the last
-	 non-container statement within.  */
-      while (1)
-	switch (TREE_CODE (inner_if))
-	  {
-	  case COND_EXPR:
-	    goto found;
-	  case BIND_EXPR:
-	    inner_if = BIND_EXPR_BODY (inner_if);
-	    break;
-	  case STATEMENT_LIST:
-	    inner_if = expr_last (then_block);
-	    break;
-	  case TRY_FINALLY_EXPR:
-	  case TRY_CATCH_EXPR:
-	    inner_if = TREE_OPERAND (inner_if, 0);
-	    break;
-	  default:
-	    gcc_unreachable ();
-	  }
-    found:
-
-      if (COND_EXPR_ELSE (inner_if))
-	 warning_at (if_locus, OPT_Wparentheses,
-		     "suggest explicit braces to avoid ambiguous %<else%>");
     }
 
   stmt = build3 (COND_EXPR, void_type_node, cond, then_block, else_block);
@@ -11086,11 +11065,6 @@ build_binary_op (location_t location, enum tree_code code,
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && null_pointer_constant_p (orig_op1))
 	{
-	  if (warn_nonnull
-	      && TREE_CODE (op0) == PARM_DECL && nonnull_arg_p (op0))
-	    warning_at (location, OPT_Wnonnull,
-			"nonnull argument %qD compared to NULL", op0);
-
 	  if (TREE_CODE (op0) == ADDR_EXPR
 	      && decl_with_nonnull_addr_p (TREE_OPERAND (op0, 0)))
 	    {
@@ -11111,11 +11085,6 @@ build_binary_op (location_t location, enum tree_code code,
 	}
       else if (code1 == POINTER_TYPE && null_pointer_constant_p (orig_op0))
 	{
-	  if (warn_nonnull
-	      && TREE_CODE (op1) == PARM_DECL && nonnull_arg_p (op1))
-	    warning_at (location, OPT_Wnonnull,
-			"nonnull argument %qD compared to NULL", op1);
-
 	  if (TREE_CODE (op1) == ADDR_EXPR
 	      && decl_with_nonnull_addr_p (TREE_OPERAND (op1, 0)))
 	    {
