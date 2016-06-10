@@ -661,6 +661,11 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define CALL_EXPR_TAILCALL(NODE) \
   (CALL_EXPR_CHECK (NODE)->base.addressable_flag)
 
+/* Set on a CALL_EXPR if the call has been marked as requiring tail call
+   optimization for correctness.  */
+#define CALL_EXPR_MUST_TAIL_CALL(NODE) \
+  (CALL_EXPR_CHECK (NODE)->base.static_flag)
+
 /* Used as a temporary field on a CASE_LABEL_EXPR to indicate that the
    CASE_LOW operand has been processed.  */
 #define CASE_LOW_SEEN(NODE) \
@@ -4224,7 +4229,13 @@ extern tree type_hash_canon (unsigned int, tree);
 
 extern tree convert (tree, tree);
 extern unsigned int expr_align (const_tree);
-extern tree size_in_bytes (const_tree);
+extern tree size_in_bytes_loc (location_t, const_tree);
+inline tree
+size_in_bytes (const_tree t)
+{
+  return size_in_bytes_loc (input_location, t);
+}
+
 extern HOST_WIDE_INT int_size_in_bytes (const_tree);
 extern HOST_WIDE_INT max_int_size_in_bytes (const_tree);
 extern tree bit_position (const_tree);
@@ -4742,6 +4753,17 @@ ptrofftype_p (tree type)
 	  && TYPE_UNSIGNED (type) == TYPE_UNSIGNED (sizetype));
 }
 
+/* Return true if the argument is a complete type or an array
+   of unknown bound (whose type is incomplete but) whose elements
+   have complete type.  */
+static inline bool
+complete_or_array_type_p (const_tree type)
+{
+  return COMPLETE_TYPE_P (type)
+         || (TREE_CODE (type) == ARRAY_TYPE
+	     && COMPLETE_TYPE_P (TREE_TYPE (type)));
+}
+
 extern tree strip_float_extensions (tree);
 extern int really_constant_p (const_tree);
 extern bool decl_address_invariant_p (const_tree);
@@ -4759,7 +4781,7 @@ extern int simple_cst_equal (const_tree, const_tree);
 namespace inchash
 {
 
-extern void add_expr (const_tree, hash &);
+extern void add_expr (const_tree, hash &, unsigned int = 0);
 
 }
 
@@ -5211,6 +5233,8 @@ namespace wi
   to_widest (const_tree);
 
   generic_wide_int <extended_tree <ADDR_MAX_PRECISION> > to_offset (const_tree);
+
+  wide_int to_wide (const_tree, unsigned int);
 }
 
 inline unsigned int
@@ -5238,6 +5262,16 @@ inline generic_wide_int <wi::extended_tree <ADDR_MAX_PRECISION> >
 wi::to_offset (const_tree t)
 {
   return t;
+}
+
+/* Convert INTEGER_CST T to a wide_int of precision PREC, extending or
+   truncating as necessary.  When extending, use sign extension if T's
+   type is signed and zero extension if T's type is unsigned.  */
+
+inline wide_int
+wi::to_wide (const_tree t, unsigned int prec)
+{
+  return wide_int::from (t, prec, TYPE_SIGN (TREE_TYPE (t)));
 }
 
 template <int N>
@@ -5318,7 +5352,7 @@ wi::max_value (const_tree type)
 inline bool
 tree_int_cst_lt (const_tree t1, const_tree t2)
 {
-  return wi::lts_p (wi::to_widest (t1), wi::to_widest (t2));
+  return wi::to_widest (t1) < wi::to_widest (t2);
 }
 
 /* Return true if INTEGER_CST T1 is less than or equal to INTEGER_CST T2,
@@ -5327,7 +5361,7 @@ tree_int_cst_lt (const_tree t1, const_tree t2)
 inline bool
 tree_int_cst_le (const_tree t1, const_tree t2)
 {
-  return wi::les_p (wi::to_widest (t1), wi::to_widest (t2));
+  return wi::to_widest (t1) <= wi::to_widest (t2);
 }
 
 /* Returns -1 if T1 < T2, 0 if T1 == T2, and 1 if T1 > T2.  T1 and T2
@@ -5375,7 +5409,7 @@ extern GTY(()) struct int_n_trees_t int_n_trees[NUM_INT_N_ENTS];
 inline HOST_WIDE_INT
 int_bit_position (const_tree field)
 { 
-  return (wi::lshift (wi::to_offset (DECL_FIELD_OFFSET (field)), BITS_PER_UNIT_LOG)
+  return ((wi::to_offset (DECL_FIELD_OFFSET (field)) << BITS_PER_UNIT_LOG)
 	  + wi::to_offset (DECL_FIELD_BIT_OFFSET (field))).to_shwi ();
 }
 

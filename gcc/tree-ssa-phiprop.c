@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "stor-layout.h"
+#include "tree-ssa-loop.h"
 
 /* This pass propagates indirect loads through the PHI node for its
    address to make the load source possibly non-addressable and to
@@ -230,6 +231,19 @@ phiprop_insert_phi (basic_block bb, gphi *phi, gimple *use_stmt,
   return res;
 }
 
+/* Verify if *idx is available at *DATA.  */
+
+static bool
+chk_uses (tree, tree *idx, void *data)
+{
+  basic_block dom = (basic_block) data;
+  if (TREE_CODE (*idx) == SSA_NAME)
+    return (SSA_NAME_IS_DEFAULT_DEF (*idx)
+	    || ! dominated_by_p (CDI_DOMINATORS,
+				 gimple_bb (SSA_NAME_DEF_STMT (*idx)), dom));
+  return true;
+}
+
 /* Propagate between the phi node arguments of PHI in BB and phi result
    users.  For now this matches
         # p_2 = PHI <&x, &y>
@@ -327,19 +341,28 @@ propagate_with_phi (basic_block bb, gphi *phi, struct phiprop_d *phivn,
 	continue;
 
       /* Check if we can move the loads.  The def stmt of the virtual use
-	 needs to be in a different basic block dominating bb.  */
+	 needs to be in a different basic block dominating bb.  When the
+	 def is an edge-inserted one we know it dominates us.  */
       vuse = gimple_vuse (use_stmt);
       def_stmt = SSA_NAME_DEF_STMT (vuse);
       if (!SSA_NAME_IS_DEFAULT_DEF (vuse)
 	  && (gimple_bb (def_stmt) == bb
-	      || !dominated_by_p (CDI_DOMINATORS,
-				  bb, gimple_bb (def_stmt))))
+	      || (gimple_bb (def_stmt)
+		  && !dominated_by_p (CDI_DOMINATORS,
+				      bb, gimple_bb (def_stmt)))))
 	goto next;
 
       /* Found a proper dereference with an aggregate copy.  Just
          insert aggregate copies on the edges instead.  */
       if (!is_gimple_reg_type (TREE_TYPE (TREE_TYPE (ptr))))
 	{
+	  /* As we replicate the lhs on each incoming edge all
+	     used SSA names have to be available there.  */
+	  if (! for_each_index (gimple_assign_lhs_ptr (use_stmt),
+				chk_uses,
+				get_immediate_dominator (CDI_DOMINATORS,
+							 gimple_bb (phi))))
+	    goto next;
 	  phiprop_insert_phi (bb, phi, use_stmt, phivn, n);
 
 	  /* Remove old stmt.  The phi is taken care of by DCE.  */

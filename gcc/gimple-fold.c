@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs-query.h"
 #include "omp-low.h"
 #include "ipa-chkp.h"
+#include "tree-cfg.h"
 
 
 /* Return true when DECL can be referenced from current unit.
@@ -542,7 +543,7 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
     }
   else
     {
-      tree tmp = get_initialized_tmp_var (expr, &stmts, NULL);
+      tree tmp = force_gimple_operand (expr, &stmts, false, NULL_TREE);
       new_stmt = gimple_build_assign (lhs, tmp);
       i = gsi_last (stmts);
       gsi_insert_after_without_update (&i, new_stmt,
@@ -1019,14 +1020,20 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
       gimple *new_stmt;
       if (is_gimple_reg_type (TREE_TYPE (srcvar)))
 	{
-	  new_stmt = gimple_build_assign (NULL_TREE, srcvar);
-	  if (gimple_in_ssa_p (cfun))
-	    srcvar = make_ssa_name (TREE_TYPE (srcvar), new_stmt);
-	  else
-	    srcvar = create_tmp_reg (TREE_TYPE (srcvar));
-	  gimple_assign_set_lhs (new_stmt, srcvar);
-	  gimple_set_vuse (new_stmt, gimple_vuse (stmt));
-	  gsi_insert_before (gsi, new_stmt, GSI_SAME_STMT);
+	  tree tem = fold_const_aggregate_ref (srcvar);
+	  if (tem)
+	    srcvar = tem;
+	  if (! is_gimple_min_invariant (srcvar))
+	    {
+	      new_stmt = gimple_build_assign (NULL_TREE, srcvar);
+	      if (gimple_in_ssa_p (cfun))
+		srcvar = make_ssa_name (TREE_TYPE (srcvar), new_stmt);
+	      else
+		srcvar = create_tmp_reg (TREE_TYPE (srcvar));
+	      gimple_assign_set_lhs (new_stmt, srcvar);
+	      gimple_set_vuse (new_stmt, gimple_vuse (stmt));
+	      gsi_insert_before (gsi, new_stmt, GSI_SAME_STMT);
+	    }
 	}
       new_stmt = gimple_build_assign (destvar, srcvar);
       gimple_set_vuse (new_stmt, gimple_vuse (stmt));
@@ -3039,10 +3046,23 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 		}
 	      if (targets.length () == 1)
 		{
-		  gimple_call_set_fndecl (stmt, targets[0]->decl);
+		  tree fndecl = targets[0]->decl;
+		  gimple_call_set_fndecl (stmt, fndecl);
 		  changed = true;
+		  /* If changing the call to __cxa_pure_virtual
+		     or similar noreturn function, adjust gimple_call_fntype
+		     too.  */
+		  if ((gimple_call_flags (stmt) & ECF_NORETURN)
+		      && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fndecl)))
+		      && TYPE_ARG_TYPES (TREE_TYPE (fndecl))
+		      && (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (fndecl)))
+			  == void_type_node))
+		    gimple_call_set_fntype (stmt, TREE_TYPE (fndecl));
 		  /* If the call becomes noreturn, remove the lhs.  */
-		  if (lhs && (gimple_call_flags (stmt) & ECF_NORETURN))
+		  if (lhs
+		      && gimple_call_noreturn_p (stmt)
+		      && (VOID_TYPE_P (TREE_TYPE (gimple_call_fntype (stmt)))
+			  || should_remove_lhs_p (lhs)))
 		    {
 		      if (TREE_CODE (lhs) == SSA_NAME)
 			{
@@ -3444,6 +3464,44 @@ maybe_canonicalize_mem_ref_addr (tree *t)
   if (TREE_CODE (*t) == ADDR_EXPR)
     t = &TREE_OPERAND (*t, 0);
 
+  /* The C and C++ frontends use an ARRAY_REF for indexing with their
+     generic vector extension.  The actual vector referenced is
+     view-converted to an array type for this purpose.  If the index
+     is constant the canonical representation in the middle-end is a
+     BIT_FIELD_REF so re-write the former to the latter here.  */
+  if (TREE_CODE (*t) == ARRAY_REF
+      && TREE_CODE (TREE_OPERAND (*t, 0)) == VIEW_CONVERT_EXPR
+      && TREE_CODE (TREE_OPERAND (*t, 1)) == INTEGER_CST
+      && VECTOR_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*t, 0), 0))))
+    {
+      tree vtype = TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*t, 0), 0));
+      if (VECTOR_TYPE_P (vtype))
+	{
+	  tree low = array_ref_low_bound (*t);
+	  if (TREE_CODE (low) == INTEGER_CST)
+	    {
+	      if (tree_int_cst_le (low, TREE_OPERAND (*t, 1)))
+		{
+		  widest_int idx = wi::sub (wi::to_widest (TREE_OPERAND (*t, 1)),
+					    wi::to_widest (low));
+		  idx = wi::mul (idx, wi::to_widest
+					 (TYPE_SIZE (TREE_TYPE (*t))));
+		  widest_int ext
+		    = wi::add (idx, wi::to_widest (TYPE_SIZE (TREE_TYPE (*t))));
+		  if (wi::les_p (ext, wi::to_widest (TYPE_SIZE (vtype))))
+		    {
+		      *t = build3_loc (EXPR_LOCATION (*t), BIT_FIELD_REF,
+				       TREE_TYPE (*t),
+				       TREE_OPERAND (TREE_OPERAND (*t, 0), 0),
+				       TYPE_SIZE (TREE_TYPE (*t)),
+				       wide_int_to_tree (sizetype, idx));
+		      res = true;
+		    }
+		}
+	    }
+	}
+    }
+
   while (handled_component_p (*t))
     t = &TREE_OPERAND (*t, 0);
 
@@ -3525,7 +3583,9 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
 {
   bool changed = false;
   gimple *stmt = gsi_stmt (*gsi);
+  bool nowarning = gimple_no_warning_p (stmt);
   unsigned i;
+  fold_defer_overflow_warnings ();
 
   /* First do required canonicalization of [TARGET_]MEM_REF addresses
      after propagation.
@@ -3818,6 +3878,7 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
 	}
     }
 
+  fold_undefer_overflow_warnings (changed && !nowarning, stmt, 0);
   return changed;
 }
 
@@ -5380,7 +5441,7 @@ fold_array_ctor_reference (tree type, tree ctor,
      be larger than size of array element.  */
   if (!TYPE_SIZE_UNIT (type)
       || TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST
-      || wi::lts_p (elt_size, wi::to_offset (TYPE_SIZE_UNIT (type)))
+      || elt_size < wi::to_offset (TYPE_SIZE_UNIT (type))
       || elt_size == 0)
     return NULL_TREE;
 
@@ -5435,8 +5496,7 @@ fold_nonarray_ctor_reference (tree type, tree ctor,
 
       /* Compute bit offset of the field.  */
       bitoffset = (wi::to_offset (field_offset)
-		   + wi::lshift (wi::to_offset (byte_offset),
-				 LOG2_BITS_PER_UNIT));
+		   + (wi::to_offset (byte_offset) << LOG2_BITS_PER_UNIT));
       /* Compute bit offset where the field ends.  */
       if (field_size != NULL_TREE)
 	bitoffset_end = bitoffset + wi::to_offset (field_size);
@@ -5457,7 +5517,7 @@ fold_nonarray_ctor_reference (tree type, tree ctor,
 	     fields.  */
 	  if (wi::cmps (access_end, bitoffset_end) > 0)
 	    return NULL_TREE;
-	  if (wi::lts_p (offset, bitoffset))
+	  if (offset < bitoffset)
 	    return NULL_TREE;
 	  return fold_ctor_reference (type, cval,
 				      inner_offset.to_uhwi (), size,

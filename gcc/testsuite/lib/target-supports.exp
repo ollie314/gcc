@@ -1279,8 +1279,8 @@ proc check_iconv_available { test_what } {
 }
 
 # Return true if Cilk Library is supported on the target.
-proc check_libcilkrts_available { } {
-  return [ check_no_compiler_messages_nocache libcilkrts_available executable {
+proc check_effective_target_cilkplus_runtime { } {
+  return [ check_no_compiler_messages_nocache cilkplus_runtime executable {
 	#ifdef __cplusplus
 	extern "C" 
 	#endif
@@ -3494,6 +3494,25 @@ proc check_effective_target_arm_neonv2 { } {
     }
 }
 
+# Return 1 if this is an ARM target with load acquire and store release
+# instructions for 8-, 16- and 32-bit types.
+
+proc check_effective_target_arm_acq_rel { } {
+    return [check_no_compiler_messages arm_acq_rel object {
+	void
+	load_acquire_store_release (void)
+	{
+	  asm ("lda r0, [r1]\n\t"
+	       "stl r0, [r1]\n\t"
+	       "ldah r0, [r1]\n\t"
+	       "stlh r0, [r1]\n\t"
+	       "ldab r0, [r1]\n\t"
+	       "stlb r0, [r1]"
+	       : : : "r0", "memory");
+	}
+    }]
+}
+
 # Return 1 if this a Loongson-2E or -2F target using an ABI that supports
 # the Loongson vector modes.
 
@@ -4105,7 +4124,8 @@ proc check_effective_target_vect_long { } {
               && ![istarget powerpc-*-linux*paired*]) 
               && [check_effective_target_ilp32])
 	 || [check_effective_target_arm32]
-	 || ([istarget sparc*-*-*] && [check_effective_target_ilp32]) } {
+	 || ([istarget sparc*-*-*] && [check_effective_target_ilp32])
+	 || [istarget aarch64*-*-*] } {
 	set answer 1
     } else {
 	set answer 0
@@ -4348,6 +4368,8 @@ proc check_effective_target_vect_widen_sum_hi_to_si_pattern { } {
         set et_vect_widen_sum_hi_to_si_pattern_saved 0
         if { [istarget powerpc*-*-*]
              || [istarget aarch64*-*-*]
+	     || ([istarget arm*-*-*] &&
+		 [check_effective_target_arm_neon_ok])
              || [istarget ia64-*-*] } {
             set et_vect_widen_sum_hi_to_si_pattern_saved 1
         }
@@ -5723,6 +5745,8 @@ proc check_effective_target_sync_int_long { } {
 	     || [istarget aarch64*-*-*]
 	     || [istarget alpha*-*-*] 
 	     || [istarget arm*-*-linux-*] 
+	     || ([istarget arm*-*-*]
+		 && [check_effective_target_arm_acq_rel])
 	     || [istarget bfin*-*linux*]
 	     || [istarget hppa*-*linux*]
 	     || [istarget s390*-*-*] 
@@ -5756,6 +5780,8 @@ proc check_effective_target_sync_char_short { } {
 	     || [istarget i?86-*-*] || [istarget x86_64-*-*]
 	     || [istarget alpha*-*-*] 
 	     || [istarget arm*-*-linux-*] 
+	     || ([istarget arm*-*-*]
+		 && [check_effective_target_arm_acq_rel])
 	     || [istarget hppa*-*linux*]
 	     || [istarget s390*-*-*] 
 	     || [istarget powerpc*-*-*]

@@ -594,6 +594,9 @@ struct cpp_callbacks
 
   /* Callback that can change a user builtin into normal macro.  */
   bool (*user_builtin_macro) (cpp_reader *, cpp_hashnode *);
+
+  /* Callback to parse SOURCE_DATE_EPOCH from environment.  */
+  time_t (*get_source_date_epoch) (cpp_reader *);
 };
 
 #ifdef VMS

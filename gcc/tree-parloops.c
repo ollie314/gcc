@@ -1868,7 +1868,7 @@ try_transform_to_exit_first_loop_alt (struct loop *loop,
 
   /* Check if nit + 1 overflows.  */
   widest_int type_max = wi::to_widest (TYPE_MAXVAL (nit_type));
-  if (!wi::lts_p (nit_max, type_max))
+  if (nit_max >= type_max)
     return false;
 
   gimple *def = SSA_NAME_DEF_STMT (nit);
@@ -3168,6 +3168,7 @@ oacc_entry_exit_ok (struct loop *loop,
 	}
     }
 
+  region_bbs.release ();
   free (loop_bbs);
 
   BITMAP_FREE (in_loop_bbs);
@@ -3287,7 +3288,7 @@ parallelize_loops (bool oacc_kernels_p)
 
       estimated = estimated_stmt_executions_int (loop);
       if (estimated == -1)
-	estimated = max_stmt_executions_int (loop);
+	estimated = likely_max_stmt_executions_int (loop);
       /* FIXME: Bypass this check as graphite doesn't update the
 	 count and frequency correctly now.  */
       if (!flag_loop_parallelize_all

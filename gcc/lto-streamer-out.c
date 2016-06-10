@@ -1816,7 +1816,11 @@ output_ssa_names (struct output_block *ob, struct function *fn)
 
       if (ptr == NULL_TREE
 	  || SSA_NAME_IN_FREE_LIST (ptr)
-	  || virtual_operand_p (ptr))
+	  || virtual_operand_p (ptr)
+	  /* Simply skip unreleased SSA names.  */
+	  || (! SSA_NAME_IS_DEFAULT_DEF (ptr)
+	      && (! SSA_NAME_DEF_STMT (ptr)
+		  || ! gimple_bb (SSA_NAME_DEF_STMT (ptr)))))
 	continue;
 
       streamer_write_uhwi (ob, i);
@@ -1921,6 +1925,9 @@ output_cfg (struct output_block *ob, struct function *fn)
       streamer_write_hwi (ob, loop->any_upper_bound);
       if (loop->any_upper_bound)
 	streamer_write_wi (ob, loop->nb_iterations_upper_bound);
+      streamer_write_hwi (ob, loop->any_likely_upper_bound);
+      if (loop->any_likely_upper_bound)
+	streamer_write_wi (ob, loop->nb_iterations_likely_upper_bound);
       streamer_write_hwi (ob, loop->any_estimate);
       if (loop->any_estimate)
 	streamer_write_wi (ob, loop->nb_iterations_estimate);

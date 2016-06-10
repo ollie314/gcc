@@ -50,7 +50,9 @@ extern tree arm_builtin_decl (unsigned code, bool initialize_p
 			      ATTRIBUTE_UNUSED);
 extern void arm_init_builtins (void);
 extern void arm_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update);
-
+extern rtx arm_simd_vect_par_cnst_half (machine_mode mode, bool high);
+extern bool arm_simd_check_vect_par_cnst_half_p (rtx op, machine_mode mode,
+						 bool high);
 #ifdef RTX_CODE
 extern bool arm_vector_mode_supported_p (machine_mode);
 extern bool arm_small_register_classes_for_mode_p (machine_mode);
@@ -319,6 +321,7 @@ extern int vfp3_const_double_for_bits (rtx);
 
 extern void arm_emit_coreregs_64bit_shift (enum rtx_code, rtx, rtx, rtx, rtx,
 					   rtx);
+extern bool arm_fusion_enabled_p (tune_params::fuse_ops);
 extern bool arm_valid_symbolic_address_p (rtx);
 extern bool arm_validize_comparison (rtx *, rtx *, rtx *);
 #endif /* RTX_CODE */
@@ -600,6 +603,9 @@ extern int arm_tune_cortex_a9;
    problems in GLD which doesn't understand that armv5t code is
    interworking clean.  */
 extern int arm_cpp_interwork;
+
+/* Nonzero if chip supports Thumb 1.  */
+extern int arm_arch_thumb1;
 
 /* Nonzero if chip supports Thumb 2.  */
 extern int arm_arch_thumb2;
