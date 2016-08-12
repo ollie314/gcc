@@ -3558,7 +3558,7 @@ fold_rtx (rtx x, rtx_insn *insn)
 		 instead we test for the problematic value in a more direct
 		 manner and hope the Sun compilers get it correct.  */
 	      && INTVAL (const_arg1) !=
-	        ((HOST_WIDE_INT) 1 << (HOST_BITS_PER_WIDE_INT - 1))
+	        (HOST_WIDE_INT_1 << (HOST_BITS_PER_WIDE_INT - 1))
 	      && REG_P (folded_arg1))
 	    {
 	      rtx new_const = GEN_INT (-INTVAL (const_arg1));
@@ -4298,6 +4298,22 @@ find_sets_in_insn (rtx_insn *insn, struct set **psets)
   return n_sets;
 }
 
+/* Subroutine of canonicalize_insn.  X is an ASM_OPERANDS in INSN.  */
+
+static void
+canon_asm_operands (rtx x, rtx_insn *insn)
+{
+  for (int i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
+    {
+      rtx input = ASM_OPERANDS_INPUT (x, i);
+      if (!(REG_P (input) && HARD_REGISTER_P (input)))
+	{
+	  input = canon_reg (input, insn);
+	  validate_change (insn, &ASM_OPERANDS_INPUT (x, i), input, 1);
+	}
+    }
+}
+
 /* Where possible, substitute every register reference in the N_SETS
    number of SETS in INSN with the canonical register.
 
@@ -4361,17 +4377,7 @@ canonicalize_insn (rtx_insn *insn, struct set **psets, int n_sets)
     /* Canonicalize a USE of a pseudo register or memory location.  */
     canon_reg (x, insn);
   else if (GET_CODE (x) == ASM_OPERANDS)
-    {
-      for (i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
-	{
-	  rtx input = ASM_OPERANDS_INPUT (x, i);
-	  if (!(REG_P (input) && REGNO (input) < FIRST_PSEUDO_REGISTER))
-	    {
-	      input = canon_reg (input, insn);
-	      validate_change (insn, &ASM_OPERANDS_INPUT (x, i), input, 1);
-	    }
-	}
-    }
+    canon_asm_operands (x, insn);
   else if (GET_CODE (x) == CALL)
     {
       canon_reg (x, insn);
@@ -4400,6 +4406,8 @@ canonicalize_insn (rtx_insn *insn, struct set **psets, int n_sets)
 		   && ! (REG_P (XEXP (y, 0))
 			 && REGNO (XEXP (y, 0)) < FIRST_PSEUDO_REGISTER))
 	    canon_reg (y, insn);
+	  else if (GET_CODE (y) == ASM_OPERANDS)
+	    canon_asm_operands (y, insn);
 	  else if (GET_CODE (y) == CALL)
 	    {
 	      canon_reg (y, insn);
@@ -4557,9 +4565,9 @@ cse_insn (rtx_insn *insn)
 	  else
 	    shift = INTVAL (pos);
 	  if (INTVAL (width) == HOST_BITS_PER_WIDE_INT)
-	    mask = ~(HOST_WIDE_INT) 0;
+	    mask = HOST_WIDE_INT_M1;
 	  else
-	    mask = ((HOST_WIDE_INT) 1 << INTVAL (width)) - 1;
+	    mask = (HOST_WIDE_INT_1 << INTVAL (width)) - 1;
 	  val = (val >> shift) & mask;
 	  src_eqv = GEN_INT (val);
 	}
@@ -4657,7 +4665,7 @@ cse_insn (rtx_insn *insn)
 	      && INTVAL (width) < HOST_BITS_PER_WIDE_INT
 	      && (INTVAL (src) & ((HOST_WIDE_INT) (-1) << INTVAL (width))))
 	    src_folded
-	      = GEN_INT (INTVAL (src) & (((HOST_WIDE_INT) 1
+	      = GEN_INT (INTVAL (src) & ((HOST_WIDE_INT_1
 					  << INTVAL (width)) - 1));
 	}
 #endif
@@ -5225,9 +5233,9 @@ cse_insn (rtx_insn *insn)
 		  else
 		    shift = INTVAL (pos);
 		  if (INTVAL (width) == HOST_BITS_PER_WIDE_INT)
-		    mask = ~(HOST_WIDE_INT) 0;
+		    mask = HOST_WIDE_INT_M1;
 		  else
-		    mask = ((HOST_WIDE_INT) 1 << INTVAL (width)) - 1;
+		    mask = (HOST_WIDE_INT_1 << INTVAL (width)) - 1;
 		  val &= ~(mask << shift);
 		  val |= (INTVAL (trial) & mask) << shift;
 		  val = trunc_int_for_mode (val, GET_MODE (dest_reg));
@@ -5751,6 +5759,13 @@ cse_insn (rtx_insn *insn)
     {
       if (!(RTL_CONST_OR_PURE_CALL_P (insn)))
 	invalidate_memory ();
+      else
+	/* For const/pure calls, invalidate any argument slots, because
+	   those are owned by the callee.  */
+	for (tem = CALL_INSN_FUNCTION_USAGE (insn); tem; tem = XEXP (tem, 1))
+	  if (GET_CODE (XEXP (tem, 0)) == USE
+	      && MEM_P (XEXP (XEXP (tem, 0), 0)))
+	    invalidate (XEXP (XEXP (tem, 0), 0), VOIDmode);
       invalidate_for_call ();
     }
 
@@ -5883,15 +5898,7 @@ cse_insn (rtx_insn *insn)
 	    || GET_MODE (dest) == BLKmode
 	    /* If we didn't put a REG_EQUAL value or a source into the hash
 	       table, there is no point is recording DEST.  */
-	    || sets[i].src_elt == 0
-	    /* If DEST is a paradoxical SUBREG and SRC is a ZERO_EXTEND
-	       or SIGN_EXTEND, don't record DEST since it can cause
-	       some tracking to be wrong.
-
-	       ??? Think about this more later.  */
-	    || (paradoxical_subreg_p (dest)
-		&& (GET_CODE (sets[i].src) == SIGN_EXTEND
-		    || GET_CODE (sets[i].src) == ZERO_EXTEND)))
+	    || sets[i].src_elt == 0)
 	  continue;
 
 	/* STRICT_LOW_PART isn't part of the value BEING set,
@@ -5909,6 +5916,11 @@ cse_insn (rtx_insn *insn)
 	      rehash_using_reg (dest);
 	      sets[i].dest_hash = HASH (dest, GET_MODE (dest));
 	    }
+
+	/* If DEST is a paradoxical SUBREG, don't record DEST since the bits
+	   outside the mode of GET_MODE (SUBREG_REG (dest)) are undefined.  */
+	if (paradoxical_subreg_p (dest))
+	  continue;
 
 	elt = insert (dest, sets[i].src_elt,
 		      sets[i].dest_hash, GET_MODE (dest));

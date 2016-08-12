@@ -231,18 +231,20 @@ average_num_loop_insns (const struct loop *loop)
    value.  */
 
 gcov_type
-expected_loop_iterations_unbounded (struct loop *loop)
+expected_loop_iterations_unbounded (const struct loop *loop,
+				    bool *read_profile_p)
 {
   edge e;
   edge_iterator ei;
   gcov_type expected;
   
+  if (read_profile_p)
+    *read_profile_p = false;
 
-  /* Average loop rolls about 3 times. If we have no profile at all, it is
-     best we can do.  */
+  /* If we have no profile at all, use AVG_LOOP_NITER.  */
   if (profile_status_for_fn (cfun) == PROFILE_ABSENT)
-    expected = 3;
-  else if (loop->latch->count || loop->header->count)
+    expected = PARAM_VALUE (PARAM_AVG_LOOP_NITER);
+  else if (loop->latch && (loop->latch->count || loop->header->count))
     {
       gcov_type count_in, count_latch;
 
@@ -258,7 +260,11 @@ expected_loop_iterations_unbounded (struct loop *loop)
       if (count_in == 0)
 	expected = count_latch * 2;
       else
-	expected = (count_latch + count_in - 1) / count_in;
+	{
+	  expected = (count_latch + count_in - 1) / count_in;
+	  if (read_profile_p)
+	    *read_profile_p = true;
+	}
     }
   else
     {
@@ -268,16 +274,16 @@ expected_loop_iterations_unbounded (struct loop *loop)
       freq_latch = 0;
 
       FOR_EACH_EDGE (e, ei, loop->header->preds)
-	if (e->src == loop->latch)
-	  freq_latch = EDGE_FREQUENCY (e);
+	if (flow_bb_inside_loop_p (loop, e->src))
+	  freq_latch += EDGE_FREQUENCY (e);
 	else
 	  freq_in += EDGE_FREQUENCY (e);
 
       if (freq_in == 0)
 	{
-	  /* If we have no profile at all, expect 3 iterations.  */
+	  /* If we have no profile at all, use AVG_LOOP_NITER iterations.  */
 	  if (!freq_latch)
-	    expected = 3;
+	    expected = PARAM_VALUE (PARAM_AVG_LOOP_NITER);
 	  else
 	    expected = freq_latch * 2;
 	}

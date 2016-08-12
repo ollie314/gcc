@@ -1274,7 +1274,6 @@ vect_attempt_slp_rearrange_stmts (slp_instance slp_instn)
 {
   unsigned int group_size = SLP_INSTANCE_GROUP_SIZE (slp_instn);
   unsigned int i, j;
-  sbitmap load_index;
   unsigned int lidx;
   slp_tree node, load;
 
@@ -1294,29 +1293,20 @@ vect_attempt_slp_rearrange_stmts (slp_instance slp_instn)
 
   /* Check that the loads in the first sequence are different and there
      are no gaps between them.  */
-  load_index = sbitmap_alloc (group_size);
+  auto_sbitmap load_index (group_size);
   bitmap_clear (load_index);
   FOR_EACH_VEC_ELT (node->load_permutation, i, lidx)
     {
       if (lidx >= group_size)
-	{
-	  sbitmap_free (load_index);
-	  return false;
-	}
+	return false;
       if (bitmap_bit_p (load_index, lidx))
-	{
-	  sbitmap_free (load_index);
-	  return false;
-	}
+	return false;
+
       bitmap_set_bit (load_index, lidx);
     }
   for (i = 0; i < group_size; i++)
     if (!bitmap_bit_p (load_index, i))
-      {
-	sbitmap_free (load_index);
-	return false;
-      }
-  sbitmap_free (load_index);
+      return false;
 
   /* This permutation is valid for reduction.  Since the order of the
      statements in the nodes is not important unless they are memory
@@ -1490,9 +1480,13 @@ vect_analyze_slp_cost_1 (slp_instance instance, slp_tree node,
   stmt_info = vinfo_for_stmt (stmt);
   if (STMT_VINFO_GROUPED_ACCESS (stmt_info))
     {
+      vect_memory_access_type memory_access_type
+	= (STMT_VINFO_STRIDED_P (stmt_info)
+	   ? VMAT_STRIDED_SLP
+	   : VMAT_CONTIGUOUS);
       if (DR_IS_WRITE (STMT_VINFO_DATA_REF (stmt_info)))
-	vect_model_store_cost (stmt_info, ncopies_for_cost, false,
-			       vect_uninitialized_def,
+	vect_model_store_cost (stmt_info, ncopies_for_cost,
+			       memory_access_type, vect_uninitialized_def,
 			       node, prologue_cost_vec, body_cost_vec);
       else
 	{
@@ -1515,8 +1509,9 @@ vect_analyze_slp_cost_1 (slp_instance instance, slp_tree node,
 	      ncopies_for_cost *= SLP_INSTANCE_UNROLLING_FACTOR (instance);
 	    }
 	  /* Record the cost for the vector loads.  */
-	  vect_model_load_cost (stmt_info, ncopies_for_cost, false,
-				node, prologue_cost_vec, body_cost_vec);
+	  vect_model_load_cost (stmt_info, ncopies_for_cost,
+				memory_access_type, node, prologue_cost_vec,
+				body_cost_vec);
 	  return;
 	}
     }

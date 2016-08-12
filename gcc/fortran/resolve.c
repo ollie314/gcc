@@ -2923,6 +2923,13 @@ resolve_function (gfc_expr *expr)
   if (gfc_is_proc_ptr_comp (expr))
     return true;
 
+  /* Avoid re-resolving the arguments of caf_get, which can lead to inserting
+     another caf_get.  */
+  if (sym && sym->attr.intrinsic
+      && (sym->intmod_sym_id == GFC_ISYM_CAF_GET
+	  || sym->intmod_sym_id == GFC_ISYM_CAF_SEND))
+    return true;
+
   if (sym && sym->attr.intrinsic
       && !gfc_resolve_intrinsic (sym, &expr->where))
     return false;
@@ -6508,15 +6515,15 @@ gfc_resolve_iterator (gfc_iterator *iter, bool real_ok, bool own_scope)
   /* Convert start, end, and step to the same type as var.  */
   if (iter->start->ts.kind != iter->var->ts.kind
       || iter->start->ts.type != iter->var->ts.type)
-    gfc_convert_type (iter->start, &iter->var->ts, 2);
+    gfc_convert_type (iter->start, &iter->var->ts, 1);
 
   if (iter->end->ts.kind != iter->var->ts.kind
       || iter->end->ts.type != iter->var->ts.type)
-    gfc_convert_type (iter->end, &iter->var->ts, 2);
+    gfc_convert_type (iter->end, &iter->var->ts, 1);
 
   if (iter->step->ts.kind != iter->var->ts.kind
       || iter->step->ts.type != iter->var->ts.type)
-    gfc_convert_type (iter->step, &iter->var->ts, 2);
+    gfc_convert_type (iter->step, &iter->var->ts, 1);
 
   if (iter->start->expr_type == EXPR_CONSTANT
       && iter->end->expr_type == EXPR_CONSTANT
@@ -6536,6 +6543,29 @@ gfc_resolve_iterator (gfc_iterator *iter, bool real_ok, bool own_scope)
       if (warn_zerotrip && ((sgn > 0 && cmp < 0) || (sgn < 0 && cmp > 0)))
 	gfc_warning (OPT_Wzerotrip,
 		     "DO loop at %L will be executed zero times",
+		     &iter->step->where);
+    }
+
+  if (iter->end->expr_type == EXPR_CONSTANT
+      && iter->end->ts.type == BT_INTEGER
+      && iter->step->expr_type == EXPR_CONSTANT
+      && iter->step->ts.type == BT_INTEGER
+      && (mpz_cmp_si (iter->step->value.integer, -1L) == 0
+	  || mpz_cmp_si (iter->step->value.integer, 1L) == 0))
+    {
+      bool is_step_positive = mpz_cmp_ui (iter->step->value.integer, 1) == 0;
+      int k = gfc_validate_kind (BT_INTEGER, iter->end->ts.kind, false);
+
+      if (is_step_positive
+	  && mpz_cmp (iter->end->value.integer, gfc_integer_kinds[k].huge) == 0)
+	gfc_warning (OPT_Wundefined_do_loop,
+		     "DO loop at %L is undefined as it overflows",
+		     &iter->step->where);
+      else if (!is_step_positive
+	       && mpz_cmp (iter->end->value.integer,
+			   gfc_integer_kinds[k].min_int) == 0)
+	gfc_warning (OPT_Wundefined_do_loop,
+		     "DO loop at %L is undefined as it underflows",
 		     &iter->step->where);
     }
 
@@ -8936,7 +8966,7 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
   if (label->defined == ST_LABEL_UNKNOWN)
     {
       gfc_error ("Label %d referenced at %L is never defined", label->value,
-		 &label->where);
+		 &code->loc);
       return;
     }
 
@@ -14494,6 +14524,10 @@ check_data_variable (gfc_data_variable *var, locus *where)
   ar = NULL;
   mpz_init_set_si (offset, 0);
   e = var->expr;
+
+  if (e->expr_type == EXPR_FUNCTION && e->value.function.isym
+      && e->value.function.isym->id == GFC_ISYM_CAF_GET)
+    e = e->value.function.actual->expr;
 
   if (e->expr_type != EXPR_VARIABLE)
     gfc_internal_error ("check_data_variable(): Bad expression");

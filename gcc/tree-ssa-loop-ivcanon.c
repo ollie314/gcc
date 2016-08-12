@@ -255,69 +255,73 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel,
 
 	  /* Look for reasons why we might optimize this stmt away. */
 
-	  if (gimple_has_side_effects (stmt))
-	    ;
-	  /* Exit conditional.  */
-	  else if (exit && body[i] == exit->src
-		   && stmt == last_stmt (exit->src))
+	  if (!gimple_has_side_effects (stmt))
 	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-	        fprintf (dump_file, "   Exit condition will be eliminated "
-			 "in peeled copies.\n");
-	      likely_eliminated_peeled = true;
-	    }
-	  else if (edge_to_cancel && body[i] == edge_to_cancel->src
-		   && stmt == last_stmt (edge_to_cancel->src))
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-	        fprintf (dump_file, "   Exit condition will be eliminated "
-			 "in last copy.\n");
-	      likely_eliminated_last = true;
-	    }
-	  /* Sets of IV variables  */
-	  else if (gimple_code (stmt) == GIMPLE_ASSIGN
-	      && constant_after_peeling (gimple_assign_lhs (stmt), stmt, loop))
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-	        fprintf (dump_file, "   Induction variable computation will"
-			 " be folded away.\n");
-	      likely_eliminated = true;
-	    }
-	  /* Assignments of IV variables.  */
-	  else if (gimple_code (stmt) == GIMPLE_ASSIGN
-		   && TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME
-		   && constant_after_peeling (gimple_assign_rhs1 (stmt), stmt,
-					      loop)
-		   && (gimple_assign_rhs_class (stmt) != GIMPLE_BINARY_RHS
-		       || constant_after_peeling (gimple_assign_rhs2 (stmt),
-		       				  stmt, loop)))
-	    {
-	      size->constant_iv = true;
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-	        fprintf (dump_file,
-			 "   Constant expression will be folded away.\n");
-	      likely_eliminated = true;
-	    }
-	  /* Conditionals.  */
-	  else if ((gimple_code (stmt) == GIMPLE_COND
-		    && constant_after_peeling (gimple_cond_lhs (stmt), stmt,
-					       loop)
-		    && constant_after_peeling (gimple_cond_rhs (stmt), stmt,
-					       loop)
-		    /* We don't simplify all constant compares so make sure
-		       they are not both constant already.  See PR70288.  */
-		    && (! is_gimple_min_invariant (gimple_cond_lhs (stmt))
-			|| ! is_gimple_min_invariant (gimple_cond_rhs (stmt))))
-		   || (gimple_code (stmt) == GIMPLE_SWITCH
-		       && constant_after_peeling (gimple_switch_index (
-						    as_a <gswitch *> (stmt)),
+	      /* Exit conditional.  */
+	      if (exit && body[i] == exit->src
+		  && stmt == last_stmt (exit->src))
+		{
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    fprintf (dump_file, "   Exit condition will be eliminated "
+			     "in peeled copies.\n");
+		  likely_eliminated_peeled = true;
+		}
+	      if (edge_to_cancel && body[i] == edge_to_cancel->src
+		  && stmt == last_stmt (edge_to_cancel->src))
+		{
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    fprintf (dump_file, "   Exit condition will be eliminated "
+			     "in last copy.\n");
+		  likely_eliminated_last = true;
+		}
+	      /* Sets of IV variables  */
+	      if (gimple_code (stmt) == GIMPLE_ASSIGN
+		  && constant_after_peeling (gimple_assign_lhs (stmt), stmt, loop))
+		{
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    fprintf (dump_file, "   Induction variable computation will"
+			     " be folded away.\n");
+		  likely_eliminated = true;
+		}
+	      /* Assignments of IV variables.  */
+	      else if (gimple_code (stmt) == GIMPLE_ASSIGN
+		       && TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME
+		       && constant_after_peeling (gimple_assign_rhs1 (stmt),
 						  stmt, loop)
-		       && ! is_gimple_min_invariant
-			       (gimple_switch_index (as_a <gswitch *> (stmt)))))
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-	        fprintf (dump_file, "   Constant conditional.\n");
-	      likely_eliminated = true;
+		       && (gimple_assign_rhs_class (stmt) != GIMPLE_BINARY_RHS
+			   || constant_after_peeling (gimple_assign_rhs2 (stmt),
+						      stmt, loop)))
+		{
+		  size->constant_iv = true;
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    fprintf (dump_file,
+			     "   Constant expression will be folded away.\n");
+		  likely_eliminated = true;
+		}
+	      /* Conditionals.  */
+	      else if ((gimple_code (stmt) == GIMPLE_COND
+			&& constant_after_peeling (gimple_cond_lhs (stmt), stmt,
+						   loop)
+			&& constant_after_peeling (gimple_cond_rhs (stmt), stmt,
+						   loop)
+			/* We don't simplify all constant compares so make sure
+			   they are not both constant already.  See PR70288.  */
+			&& (! is_gimple_min_invariant (gimple_cond_lhs (stmt))
+			    || ! is_gimple_min_invariant
+				 (gimple_cond_rhs (stmt))))
+		       || (gimple_code (stmt) == GIMPLE_SWITCH
+			   && constant_after_peeling (gimple_switch_index (
+							as_a <gswitch *>
+							  (stmt)),
+						      stmt, loop)
+			   && ! is_gimple_min_invariant
+				   (gimple_switch_index
+				      (as_a <gswitch *> (stmt)))))
+		{
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    fprintf (dump_file, "   Constant conditional.\n");
+		  likely_eliminated = true;
+		}
 	    }
 
 	  size->overall += num;
@@ -739,7 +743,6 @@ try_unroll_loop_completely (struct loop *loop,
 
   if (n_unroll)
     {
-      sbitmap wont_exit;
       bool large;
       if (ul == UL_SINGLE_ITER)
 	return false;
@@ -856,7 +859,7 @@ try_unroll_loop_completely (struct loop *loop,
                        "loop turned into non-loop; it never loops.\n");
 
       initialize_original_copy_tables ();
-      wont_exit = sbitmap_alloc (n_unroll + 1);
+      auto_sbitmap wont_exit (n_unroll + 1);
       if (exit && niter
 	  && TREE_CODE (niter) == INTEGER_CST
 	  && wi::leu_p (n_unroll, wi::to_widest (niter)))
@@ -879,13 +882,11 @@ try_unroll_loop_completely (struct loop *loop,
 						 | DLTHE_FLAG_COMPLETTE_PEEL))
 	{
           free_original_copy_tables ();
-	  free (wont_exit);
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "Failed to duplicate the loop\n");
 	  return false;
 	}
 
-      free (wont_exit);
       free_original_copy_tables ();
     }
 
@@ -963,7 +964,6 @@ try_peel_loop (struct loop *loop,
   HOST_WIDE_INT npeel;
   struct loop_size size;
   int peeled_size;
-  sbitmap wont_exit;
 
   if (!flag_peel_loops || PARAM_VALUE (PARAM_MAX_PEEL_TIMES) <= 0
       || !peeled_loops)
@@ -1038,7 +1038,7 @@ try_peel_loop (struct loop *loop,
 
   /* Duplicate possibly eliminating the exits.  */
   initialize_original_copy_tables ();
-  wont_exit = sbitmap_alloc (npeel + 1);
+  auto_sbitmap wont_exit (npeel + 1);
   if (exit && niter
       && TREE_CODE (niter) == INTEGER_CST
       && wi::leu_p (npeel, wi::to_widest (niter)))
@@ -1057,10 +1057,8 @@ try_peel_loop (struct loop *loop,
 					     DLTHE_FLAG_UPDATE_FREQ))
     {
       free_original_copy_tables ();
-      free (wont_exit);
       return false;
     }
-  free (wont_exit);
   free_original_copy_tables ();
   if (dump_file && (dump_flags & TDF_DETAILS))
     {

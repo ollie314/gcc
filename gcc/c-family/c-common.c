@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "opts.h"
 #include "gimplify.h"
+#include "substring-locations.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -353,6 +354,8 @@ static tree handle_tls_model_attribute (tree *, tree, tree, int,
 					bool *);
 static tree handle_no_instrument_function_attribute (tree *, tree,
 						     tree, int, bool *);
+static tree handle_no_profile_instrument_function_attribute (tree *, tree,
+							     tree, int, bool *);
 static tree handle_malloc_attribute (tree *, tree, tree, int, bool *);
 static tree handle_returns_twice_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_limit_stack_attribute (tree *, tree, tree, int,
@@ -717,6 +720,9 @@ const struct attribute_spec c_common_attribute_table[] =
   { "no_instrument_function", 0, 0, true,  false, false,
 			      handle_no_instrument_function_attribute,
 			      false },
+  { "no_profile_instrument_function",  0, 0, true, false, false,
+			      handle_no_profile_instrument_function_attribute,
+			      false },
   { "malloc",                 0, 0, true,  false, false,
 			      handle_malloc_attribute, false },
   { "returns_twice",          0, 0, true,  false, false,
@@ -748,7 +754,7 @@ const struct attribute_spec c_common_attribute_table[] =
   { "deprecated",             0, 1, false, false, false,
 			      handle_deprecated_attribute, false },
   { "vector_size",	      1, 1, false, true, false,
-			      handle_vector_size_attribute, false },
+			      handle_vector_size_attribute, true },
   { "visibility",	      1, 1, false, false, false,
 			      handle_visibility_attribute, false },
   { "tls_model",	      1, 1, true,  false, false,
@@ -1093,6 +1099,67 @@ fix_string_type (tree value)
   TREE_STATIC (value) = 1;
   return value;
 }
+
+/* Given a string of type STRING_TYPE, determine what kind of string
+   token would give an equivalent execution encoding: CPP_STRING,
+   CPP_STRING16, or CPP_STRING32.  Return CPP_OTHER in case of error.
+   This may not be exactly the string token type that initially created
+   the string, since CPP_WSTRING is indistinguishable from the 16/32 bit
+   string type at this point.
+
+   This effectively reverses part of the logic in lex_string and
+   fix_string_type.  */
+
+static enum cpp_ttype
+get_cpp_ttype_from_string_type (tree string_type)
+{
+  gcc_assert (string_type);
+  if (TREE_CODE (string_type) != ARRAY_TYPE)
+    return CPP_OTHER;
+
+  tree element_type = TREE_TYPE (string_type);
+  if (TREE_CODE (element_type) != INTEGER_TYPE)
+    return CPP_OTHER;
+
+  int bits_per_character = TYPE_PRECISION (element_type);
+  switch (bits_per_character)
+    {
+    case 8:
+      return CPP_STRING;  /* It could have also been CPP_UTF8STRING.  */
+    case 16:
+      return CPP_STRING16;
+    case 32:
+      return CPP_STRING32;
+    }
+
+  return CPP_OTHER;
+}
+
+/* The global record of string concatentations, for use in
+   extracting locations within string literals.  */
+
+GTY(()) string_concat_db *g_string_concat_db;
+
+/* Attempt to determine the source range of the substring.
+   If successful, return NULL and write the source range to *OUT_RANGE.
+   Otherwise return an error message.  Error messages are intended
+   for GCC developers (to help debugging) rather than for end-users.  */
+
+const char *
+substring_loc::get_range (source_range *out_range) const
+{
+  gcc_assert (out_range);
+
+  enum cpp_ttype tok_type = get_cpp_ttype_from_string_type (m_string_type);
+  if (tok_type == CPP_OTHER)
+    return "unrecognized string type";
+
+  return get_source_range_for_substring (parse_in, g_string_concat_db,
+					 m_fmt_string_loc, tok_type,
+					 m_start_idx, m_end_idx,
+					 out_range);
+}
+
 
 /* Fold X for consideration by one of the warning functions when checking
    whether an expression has a constant value.  */
@@ -2980,13 +3047,15 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
     case COMPOUND_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
-      tmp_before = tmp_nosp = tmp_list3 = 0;
+      tmp_before = tmp_nosp = tmp_list2 = tmp_list3 = 0;
       verify_tree (TREE_OPERAND (x, 0), &tmp_before, &tmp_nosp, NULL_TREE);
       warn_for_collisions (tmp_nosp);
       merge_tlist (pbefore_sp, tmp_before, 0);
       merge_tlist (pbefore_sp, tmp_nosp, 0);
-      verify_tree (TREE_OPERAND (x, 1), &tmp_list3, pno_sp, NULL_TREE);
+      verify_tree (TREE_OPERAND (x, 1), &tmp_list3, &tmp_list2, NULL_TREE);
+      warn_for_collisions (tmp_list2);
       merge_tlist (pbefore_sp, tmp_list3, 0);
+      merge_tlist (pno_sp, tmp_list2, 0);
       return;
 
     case COND_EXPR:
@@ -4549,6 +4618,7 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 	tree fromtype = TREE_TYPE (TREE_OPERAND (expr, 0));
 
 	if (POINTER_TYPE_P (totype)
+	    && !c_inhibit_evaluation_warnings
 	    && TREE_CODE (fromtype) == REFERENCE_TYPE)
 	  {
 	    tree inner = expr;
@@ -4583,8 +4653,9 @@ c_common_truthvalue_conversion (location_t location, tree expr)
       if (!TREE_NO_WARNING (expr)
 	  && warn_parentheses)
 	{
-	  warning (OPT_Wparentheses,
-		   "suggest parentheses around assignment used as truth value");
+	  warning_at (location, OPT_Wparentheses,
+		      "suggest parentheses around assignment used as "
+		      "truth value");
 	  TREE_NO_WARNING (expr) = 1;
 	}
       break;
@@ -4734,8 +4805,6 @@ static GTY(()) hash_table<c_type_hasher> *type_hash_table;
 alias_set_type
 c_common_get_alias_set (tree t)
 {
-  tree u;
-
   /* For VLAs, use the alias set of the element type rather than the
      default of alias set 0 for types compared structurally.  */
   if (TYPE_P (t) && TYPE_STRUCTURAL_EQUALITY_P (t))
@@ -4744,19 +4813,6 @@ c_common_get_alias_set (tree t)
 	return get_alias_set (TREE_TYPE (t));
       return -1;
     }
-
-  /* Permit type-punning when accessing a union, provided the access
-     is directly through the union.  For example, this code does not
-     permit taking the address of a union member and then storing
-     through it.  Even the type-punning allowed here is a GCC
-     extension, albeit a common and useful one; the C standard says
-     that such accesses have implementation-defined behavior.  */
-  for (u = t;
-       TREE_CODE (u) == COMPONENT_REF || TREE_CODE (u) == ARRAY_REF;
-       u = TREE_OPERAND (u, 0))
-    if (TREE_CODE (u) == COMPONENT_REF
-	&& TREE_CODE (TREE_TYPE (TREE_OPERAND (u, 0))) == UNION_TYPE)
-      return 0;
 
   /* That's all the expressions we handle specially.  */
   if (!TYPE_P (t))
@@ -7691,7 +7747,7 @@ check_user_alignment (const_tree align, bool allow_zero)
       error ("requested alignment is not a positive power of 2");
       return -1;
     }
-  else if (i >= HOST_BITS_PER_INT - BITS_PER_UNIT_LOG)
+  else if (i >= HOST_BITS_PER_INT - LOG2_BITS_PER_UNIT)
     {
       error ("requested alignment is too large");
       return -1;
@@ -8305,6 +8361,22 @@ handle_no_instrument_function_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+/* Handle a "no_profile_instrument_function" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_no_profile_instrument_function_attribute (tree *node, tree name, tree,
+						 int, bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "malloc" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -8361,7 +8433,8 @@ handle_alloc_align_attribute (tree *node, tree, tree args, int,
 {
   unsigned arg_count = type_num_arguments (*node);
   tree position = TREE_VALUE (args);
-  if (position && TREE_CODE (position) != IDENTIFIER_NODE)
+  if (position && TREE_CODE (position) != IDENTIFIER_NODE
+      && TREE_CODE (position) != FUNCTION_DECL)
     position = default_conversion (position);
 
   if (!tree_fits_uhwi_p (position)
@@ -9040,10 +9113,14 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 
   /* If no arguments are specified, all pointer arguments should be
      non-null.  Verify a full prototype is given so that the arguments
-     will have the correct types when we actually check them later.  */
+     will have the correct types when we actually check them later.
+     Avoid diagnosing type-generic built-ins since those have no
+     prototype.  */
   if (!args)
     {
-      if (!prototype_p (type))
+      if (!prototype_p (type)
+	  && (!TYPE_ATTRIBUTES (type)
+	      || !lookup_attribute ("type generic", TYPE_ATTRIBUTES (type))))
 	{
 	  error ("nonnull attribute without arguments on a non-prototype");
 	  *no_add_attrs = true;
@@ -9979,10 +10056,22 @@ check_builtin_function_arguments (location_t loc, vec<location_t> arg_loc,
 		return false;
 	      }
 	  if (TREE_CODE (TREE_TYPE (args[2])) != POINTER_TYPE
-	      || TREE_CODE (TREE_TYPE (TREE_TYPE (args[2]))) != INTEGER_TYPE)
+	      || !INTEGRAL_TYPE_P (TREE_TYPE (TREE_TYPE (args[2]))))
 	    {
 	      error_at (ARG_LOCATION (2), "argument 3 in call to function %qE "
-			"does not have pointer to integer type", fndecl);
+			"does not have pointer to integral type", fndecl);
+	      return false;
+	    }
+	  else if (TREE_CODE (TREE_TYPE (TREE_TYPE (args[2]))) == ENUMERAL_TYPE)
+	    {
+	      error_at (ARG_LOCATION (2), "argument 3 in call to function %qE "
+			"has pointer to enumerated type", fndecl);
+	      return false;
+	    }
+	  else if (TREE_CODE (TREE_TYPE (TREE_TYPE (args[2]))) == BOOLEAN_TYPE)
+	    {
+	      error_at (ARG_LOCATION (2), "argument 3 in call to function %qE "
+			"has pointer to boolean type", fndecl);
 	      return false;
 	    }
 	  return true;
@@ -10002,6 +10091,18 @@ check_builtin_function_arguments (location_t loc, vec<location_t> arg_loc,
 			  "%qE does not have integral type", i + 1, fndecl);
 		return false;
 	      }
+	  if (TREE_CODE (TREE_TYPE (args[2])) == ENUMERAL_TYPE)
+	    {
+	      error_at (ARG_LOCATION (2), "argument 3 in call to function "
+			"%qE has enumerated type", fndecl);
+	      return false;
+	    }
+	  else if (TREE_CODE (TREE_TYPE (args[2])) == BOOLEAN_TYPE)
+	    {
+	      error_at (ARG_LOCATION (2), "argument 3 in call to function "
+			"%qE has boolean type", fndecl);
+	      return false;
+	    }
 	  return true;
 	}
       return false;
@@ -11498,7 +11599,8 @@ resolve_overloaded_builtin (location_t loc, tree function,
 	  return result;
 	if (orig_code != BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_N
 	    && orig_code != BUILT_IN_SYNC_LOCK_RELEASE_N
-	    && orig_code != BUILT_IN_ATOMIC_STORE_N)
+	    && orig_code != BUILT_IN_ATOMIC_STORE_N
+	    && orig_code != BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N)
 	  result = sync_resolve_return (first_param, result, orig_format);
 
 	if (fetch_op)
@@ -11983,7 +12085,7 @@ warn_for_sign_compare (location_t location,
           if (bits < TYPE_PRECISION (result_type)
               && bits < HOST_BITS_PER_LONG && unsignedp)
             {
-              mask = (~ (unsigned HOST_WIDE_INT) 0) << bits;
+              mask = HOST_WIDE_INT_M1U << bits;
               if ((mask & constant) != mask)
 		{
 		  if (constant == 0)
@@ -12807,7 +12909,7 @@ time_t
 cb_get_source_date_epoch (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   char *source_date_epoch;
-  long long epoch;
+  int64_t epoch;
   char *endptr;
 
   source_date_epoch = getenv ("SOURCE_DATE_EPOCH");
@@ -12815,7 +12917,11 @@ cb_get_source_date_epoch (cpp_reader *pfile ATTRIBUTE_UNUSED)
     return (time_t) -1;
 
   errno = 0;
+#if defined(INT64_T_IS_LONG)
+  epoch = strtol (source_date_epoch, &endptr, 10);
+#else
   epoch = strtoll (source_date_epoch, &endptr, 10);
+#endif
   if (errno != 0 || endptr == source_date_epoch || *endptr != '\0'
       || epoch < 0 || epoch > MAX_SOURCE_DATE_EPOCH)
     {

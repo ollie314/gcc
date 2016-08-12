@@ -916,14 +916,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* In a CALL_EXPR, means call was instrumented by Pointer Bounds Checker.  */
 #define CALL_WITH_BOUNDS_P(NODE) (CALL_EXPR_CHECK (NODE)->base.deprecated_flag)
 
-/* In a type, nonzero means that all objects of the type are guaranteed by the
-   language or front-end to be properly aligned, so we can indicate that a MEM
-   of this type is aligned at least to the alignment of the type, even if it
-   doesn't appear that it is.  We see this, for example, in object-oriented
-   languages where a tag field may show this is an object of a more-aligned
-   variant of the more generic type.  */
-#define TYPE_ALIGN_OK(NODE) (TYPE_CHECK (NODE)->base.nothrow_flag)
-
 /* Used in classes in C++.  */
 #define TREE_PRIVATE(NODE) ((NODE)->base.private_flag)
 /* Used in classes in C++. */
@@ -1868,7 +1860,7 @@ extern machine_mode element_mode (const_tree t);
 
 /* The alignment necessary for objects of this type.
    The value is an int, measured in bits and must be a power of two.
-   We support also an "alignement" of zero.  */
+   We support also an "alignment" of zero.  */
 #define TYPE_ALIGN(NODE) \
     (TYPE_CHECK (NODE)->type_common.align \
      ? ((unsigned)1) << ((NODE)->type_common.align - 1) : 0)
@@ -1960,6 +1952,7 @@ extern machine_mode element_mode (const_tree t);
 #define TYPE_LANG_FLAG_4(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_4)
 #define TYPE_LANG_FLAG_5(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_5)
 #define TYPE_LANG_FLAG_6(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_6)
+#define TYPE_LANG_FLAG_7(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_7)
 
 /* Used to keep track of visited nodes in tree traversals.  This is set to
    0 by copy_node and make_node.  */
@@ -1972,7 +1965,7 @@ extern machine_mode element_mode (const_tree t);
 
 /* For a VECTOR_TYPE, this is the number of sub-parts of the vector.  */
 #define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) \
-  (((unsigned HOST_WIDE_INT) 1) \
+  (HOST_WIDE_INT_1U \
    << VECTOR_TYPE_CHECK (VECTOR_TYPE)->type_common.precision)
 
 /* Set precision to n when we have 2^n sub-parts of the vector.  */
@@ -3985,8 +3978,8 @@ extern tree build_call_expr_loc (location_t, tree, int, ...);
 extern tree build_call_expr (tree, int, ...);
 extern tree build_call_expr_internal_loc (location_t, enum internal_fn,
 					  tree, int, ...);
-extern tree build_call_expr_internal_loc (location_t, enum internal_fn,
-					  tree, int, tree *);
+extern tree build_call_expr_internal_loc_array (location_t, enum internal_fn,
+						tree, int, const tree *);
 extern tree maybe_build_call_expr_loc (location_t, combined_fn, tree,
 				       int, ...);
 extern tree build_string_literal (int, const char *);
@@ -4242,6 +4235,8 @@ extern tree bit_position (const_tree);
 extern tree byte_position (const_tree);
 extern HOST_WIDE_INT int_byte_position (const_tree);
 
+/* Type for sizes of data-type.  */
+
 #define sizetype sizetype_tab[(int) stk_sizetype]
 #define bitsizetype sizetype_tab[(int) stk_bitsizetype]
 #define ssizetype sizetype_tab[(int) stk_ssizetype]
@@ -4251,12 +4246,15 @@ extern HOST_WIDE_INT int_byte_position (const_tree);
 #define bitsize_int(L) size_int_kind (L, stk_bitsizetype)
 #define sbitsize_int(L) size_int_kind (L, stk_sbitsizetype)
 
-/* Type for sizes of data-type.  */
+/* Log2 of BITS_PER_UNIT.  */
 
-#define BITS_PER_UNIT_LOG \
-  ((BITS_PER_UNIT > 1) + (BITS_PER_UNIT > 2) + (BITS_PER_UNIT > 4) \
-   + (BITS_PER_UNIT > 8) + (BITS_PER_UNIT > 16) + (BITS_PER_UNIT > 32) \
-   + (BITS_PER_UNIT > 64) + (BITS_PER_UNIT > 128) + (BITS_PER_UNIT > 256))
+#if BITS_PER_UNIT == 8
+#define LOG2_BITS_PER_UNIT 3
+#elif BITS_PER_UNIT == 16
+#define LOG2_BITS_PER_UNIT 4
+#else
+#error Unknown BITS_PER_UNIT
+#endif
 
 /* Concatenate two lists (chains of TREE_LIST nodes) X and Y
    by making the last node in X point to Y.
@@ -5387,8 +5385,7 @@ extern bool complete_ctor_at_level_p (const_tree, HOST_WIDE_INT, const_tree);
    look for the ultimate containing object, which is returned and specify
    the access position and size.  */
 extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
-				 tree *, machine_mode *, int *, int *,
-				 int *, bool);
+				 tree *, machine_mode *, int *, int *, int *);
 
 extern tree build_personality_function (const char *);
 
@@ -5408,8 +5405,8 @@ extern GTY(()) struct int_n_trees_t int_n_trees[NUM_INT_N_ENTS];
 
 inline HOST_WIDE_INT
 int_bit_position (const_tree field)
-{ 
-  return ((wi::to_offset (DECL_FIELD_OFFSET (field)) << BITS_PER_UNIT_LOG)
+{
+  return ((wi::to_offset (DECL_FIELD_OFFSET (field)) << LOG2_BITS_PER_UNIT)
 	  + wi::to_offset (DECL_FIELD_BIT_OFFSET (field))).to_shwi ();
 }
 
@@ -5433,16 +5430,6 @@ type_with_alias_set_p (const_tree t)
   return false;
 }
 
-extern location_t get_pure_location (location_t loc);
-
-/* Get the endpoint of any range encoded within location LOC.  */
-
-static inline location_t
-get_finish (location_t loc)
-{
-  return get_range_from_loc (line_table, loc).m_finish;
-}
-
 extern location_t set_block (location_t loc, tree block);
 
 extern void gt_ggc_mx (tree &);
@@ -5464,9 +5451,6 @@ get_decl_source_range (tree decl)
   location_t loc = DECL_SOURCE_LOCATION (decl);
   return get_range_from_loc (line_table, loc);
 }
-
-extern location_t
-make_location (location_t caret, location_t start, location_t finish);
 
 /* Return true if it makes sense to promote/demote from_type to to_type. */
 inline bool

@@ -47,7 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-ubsan.h"
 #include "cilk.h"
 #include "gomp-constants.h"
-#include "spellcheck.h"
+#include "spellcheck-tree.h"
 #include "gcc-rich-location.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
@@ -1896,6 +1896,7 @@ mark_exp_read (tree exp)
     case IMAGPART_EXPR:
     CASE_CONVERT:
     case ADDR_EXPR:
+    case VIEW_CONVERT_EXPR:
       mark_exp_read (TREE_OPERAND (exp, 0));
       break;
     case COMPOUND_EXPR:
@@ -2371,14 +2372,9 @@ build_component_ref (location_t loc, tree datum, tree component,
 		 we have a valid range for the component.  */
 	      location_t reported_loc
 		= (component_loc != UNKNOWN_LOCATION) ? component_loc : loc;
-	      rich_location rich_loc (line_table, reported_loc);
+	      gcc_rich_location rich_loc (reported_loc);
 	      if (component_loc != UNKNOWN_LOCATION)
-		{
-		  source_range component_range =
-		    get_range_from_loc (line_table, component_loc);
-		  rich_loc.add_fixit_replace (component_range,
-					      IDENTIFIER_POINTER (guessed_id));
-		}
+		rich_loc.add_fixit_misspelled_id (component_loc, guessed_id);
 	      error_at_rich_loc
 		(&rich_loc,
 		 "%qT has no member named %qE; did you mean %qE?",
@@ -4851,6 +4847,8 @@ build_conditional_expr (location_t colon_loc, tree ifexp, bool ifexp_bcp,
 	       || code2 == COMPLEX_TYPE))
     {
       result_type = c_common_type (type1, type2);
+      if (result_type == error_mark_node)
+	return error_mark_node;
       do_warn_double_promotion (result_type, type1, type2,
 				"implicit conversion from %qT to %qT to "
 				"match other result of conditional",
@@ -8211,7 +8209,7 @@ set_init_index (location_t loc, tree first, tree last,
 /* Within a struct initializer, specify the next field to be initialized.  */
 
 void
-set_init_label (location_t loc, tree fieldname,
+set_init_label (location_t loc, tree fieldname, location_t fieldname_loc,
 		struct obstack *braced_init_obstack)
 {
   tree field;
@@ -8230,7 +8228,21 @@ set_init_label (location_t loc, tree fieldname,
   field = lookup_field (constructor_type, fieldname);
 
   if (field == 0)
-    error_at (loc, "unknown field %qE specified in initializer", fieldname);
+    {
+      tree guessed_id = lookup_field_fuzzy (constructor_type, fieldname);
+      if (guessed_id)
+	{
+	  gcc_rich_location rich_loc (fieldname_loc);
+	  rich_loc.add_fixit_misspelled_id (fieldname_loc, guessed_id);
+	  error_at_rich_loc
+	    (&rich_loc,
+	     "%qT has no member named %qE; did you mean %qE?",
+	     constructor_type, fieldname, guessed_id);
+	}
+      else
+	error_at (fieldname_loc, "%qT has no member named %qE",
+		  constructor_type, fieldname);
+    }
   else
     do
       {
@@ -8582,7 +8594,7 @@ set_nonincremental_init_from_string (tree str,
 	  bitpos = ((wchar_bytes - 1) * charwidth) + HOST_BITS_PER_CHAR;
 	  if (bitpos < HOST_BITS_PER_WIDE_INT)
 	    {
-	      if (val[0] & (((HOST_WIDE_INT) 1) << (bitpos - 1)))
+	      if (val[0] & (HOST_WIDE_INT_1 << (bitpos - 1)))
 		{
 		  val[0] |= HOST_WIDE_INT_M1U << bitpos;
 		  val[1] = -1;
@@ -8593,7 +8605,7 @@ set_nonincremental_init_from_string (tree str,
 	      if (val[0] < 0)
 		val[1] = -1;
 	    }
-	  else if (val[1] & (((HOST_WIDE_INT) 1)
+	  else if (val[1] & (HOST_WIDE_INT_1
 			     << (bitpos - 1 - HOST_BITS_PER_WIDE_INT)))
 	    val[1] |= HOST_WIDE_INT_M1U << (bitpos - HOST_BITS_PER_WIDE_INT);
 	}
@@ -8743,6 +8755,22 @@ output_init_element (location_t loc, tree value, tree origtype,
   if (!maybe_const)
     constructor_nonconst = 1;
 
+  /* Digest the initializer and issue any errors about incompatible
+     types before issuing errors about non-constant initializers.  */
+  tree new_value = value;
+  if (semantic_type)
+    new_value = build1 (EXCESS_PRECISION_EXPR, semantic_type, value);
+  new_value = digest_init (loc, type, new_value, origtype, npc, strict_string,
+			   require_constant_value);
+  if (new_value == error_mark_node)
+    {
+      constructor_erroneous = 1;
+      return;
+    }
+  if (require_constant_value || require_constant_elements)
+    constant_expression_warning (new_value);
+
+  /* Proceed to check the constness of the original initializer.  */
   if (!initializer_constant_valid_p (value, TREE_TYPE (value)))
     {
       if (require_constant_value)
@@ -8787,17 +8815,8 @@ output_init_element (location_t loc, tree value, tree origtype,
 		  || DECL_CHAIN (field)))))
     return;
 
-  if (semantic_type)
-    value = build1 (EXCESS_PRECISION_EXPR, semantic_type, value);
-  value = digest_init (loc, type, value, origtype, npc, strict_string,
-		       require_constant_value);
-  if (value == error_mark_node)
-    {
-      constructor_erroneous = 1;
-      return;
-    }
-  if (require_constant_value || require_constant_elements)
-    constant_expression_warning (value);
+  /* Finally, set VALUE to the initializer value digested above.  */
+  value = new_value;
 
   /* If this element doesn't come next in sequence,
      put it on constructor_pending_elts.  */
@@ -10967,21 +10986,16 @@ build_binary_op (location_t location, enum tree_code code,
 	 Also set SHORT_SHIFT if shifting rightward.  */
 
     case RSHIFT_EXPR:
-      if (code0 == VECTOR_TYPE && code1 == INTEGER_TYPE
-          && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE)
-        {
-          result_type = type0;
-          converted = 1;
-        }
-      else if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
-	       && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
-	       && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
-	       && TYPE_VECTOR_SUBPARTS (type0) == TYPE_VECTOR_SUBPARTS (type1))
+      if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
+	  && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
+	  && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
+	  && TYPE_VECTOR_SUBPARTS (type0) == TYPE_VECTOR_SUBPARTS (type1))
 	{
 	  result_type = type0;
 	  converted = 1;
 	}
-      else if ((code0 == INTEGER_TYPE || code0 == FIXED_POINT_TYPE)
+      else if ((code0 == INTEGER_TYPE || code0 == FIXED_POINT_TYPE
+		|| code0 == VECTOR_TYPE)
 	       && code1 == INTEGER_TYPE)
 	{
 	  doing_shift = true;
@@ -10993,6 +11007,18 @@ build_binary_op (location_t location, enum tree_code code,
 		  if (c_inhibit_evaluation_warnings == 0)
 		    warning_at (location, OPT_Wshift_count_negative,
 				"right shift count is negative");
+		}
+	      else if (code0 == VECTOR_TYPE)
+		{
+		  if (compare_tree_int (op1,
+					TYPE_PRECISION (TREE_TYPE (type0)))
+		      >= 0)
+		    {
+		      int_const = false;
+		      if (c_inhibit_evaluation_warnings == 0)
+			warning_at (location, OPT_Wshift_count_overflow,
+				    "right shift count >= width of vector element");
+		    }
 		}
 	      else
 		{
@@ -11017,21 +11043,16 @@ build_binary_op (location_t location, enum tree_code code,
       break;
 
     case LSHIFT_EXPR:
-      if (code0 == VECTOR_TYPE && code1 == INTEGER_TYPE
-          && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE)
-        {
-          result_type = type0;
-          converted = 1;
-        }
-      else if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
-	       && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
-	       && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
-	       && TYPE_VECTOR_SUBPARTS (type0) == TYPE_VECTOR_SUBPARTS (type1))
+      if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
+	  && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
+	  && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
+	  && TYPE_VECTOR_SUBPARTS (type0) == TYPE_VECTOR_SUBPARTS (type1))
 	{
 	  result_type = type0;
 	  converted = 1;
 	}
-      else if ((code0 == INTEGER_TYPE || code0 == FIXED_POINT_TYPE)
+      else if ((code0 == INTEGER_TYPE || code0 == FIXED_POINT_TYPE
+		|| code0 == VECTOR_TYPE)
 	       && code1 == INTEGER_TYPE)
 	{
 	  doing_shift = true;
@@ -11054,6 +11075,18 @@ build_binary_op (location_t location, enum tree_code code,
 		  if (c_inhibit_evaluation_warnings == 0)
 		    warning_at (location, OPT_Wshift_count_negative,
 				"left shift count is negative");
+		}
+	      else if (code0 == VECTOR_TYPE)
+		{
+		  if (compare_tree_int (op1,
+					TYPE_PRECISION (TREE_TYPE (type0)))
+		      >= 0)
+		    {
+		      int_const = false;
+		      if (c_inhibit_evaluation_warnings == 0)
+			warning_at (location, OPT_Wshift_count_overflow,
+				    "left shift count >= width of vector element");
+		    }
 		}
 	      else if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
 		{
@@ -11915,7 +11948,7 @@ c_finish_omp_cancel (location_t loc, tree clauses)
     mask = 8;
   else
     {
-      error_at (loc, "%<#pragma omp cancel must specify one of "
+      error_at (loc, "%<#pragma omp cancel%> must specify one of "
 		     "%<parallel%>, %<for%>, %<sections%> or %<taskgroup%> "
 		     "clauses");
       return;
@@ -11954,7 +11987,7 @@ c_finish_omp_cancellation_point (location_t loc, tree clauses)
     mask = 8;
   else
     {
-      error_at (loc, "%<#pragma omp cancellation point must specify one of "
+      error_at (loc, "%<#pragma omp cancellation point%> must specify one of "
 		     "%<parallel%>, %<for%>, %<sections%> or %<taskgroup%> "
 		     "clauses");
       return;
@@ -12486,6 +12519,10 @@ handle_omp_array_sections (tree c, enum c_omp_region_type ort)
 	  case GOMP_MAP_ALWAYS_TOFROM:
 	  case GOMP_MAP_RELEASE:
 	  case GOMP_MAP_DELETE:
+	  case GOMP_MAP_FORCE_TO:
+	  case GOMP_MAP_FORCE_FROM:
+	  case GOMP_MAP_FORCE_TOFROM:
+	  case GOMP_MAP_FORCE_PRESENT:
 	    OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION (c) = 1;
 	    break;
 	  default:
@@ -13658,7 +13695,8 @@ c_build_qualified_type (tree type, int type_quals, tree orig_qual_type,
 		   : build_qualified_type (type, type_quals));
   /* A variant type does not inherit the list of incomplete vars from the
      type main variant.  */
-  if (RECORD_OR_UNION_TYPE_P (var_type))
+  if (RECORD_OR_UNION_TYPE_P (var_type)
+      && TYPE_MAIN_VARIANT (var_type) != var_type)
     C_TYPE_INCOMPLETE_VARS (var_type) = 0;
   return var_type;
 }

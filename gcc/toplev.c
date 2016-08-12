@@ -561,14 +561,14 @@ compile_file (void)
 #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
       ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
 				      "__gnu_lto_v1",
-				      (unsigned HOST_WIDE_INT) 1, 8);
+				      HOST_WIDE_INT_1U, 8);
 #elif defined ASM_OUTPUT_ALIGNED_COMMON
       ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_v1",
-				 (unsigned HOST_WIDE_INT) 1, 8);
+				 HOST_WIDE_INT_1U, 8);
 #else
       ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_v1",
-			 (unsigned HOST_WIDE_INT) 1,
-			 (unsigned HOST_WIDE_INT) 1);
+			 HOST_WIDE_INT_1U,
+			 HOST_WIDE_INT_1U);
 #endif
     }
 
@@ -578,14 +578,14 @@ compile_file (void)
     {
 #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
       ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE, "__gnu_lto_slim",
-				      (unsigned HOST_WIDE_INT) 1, 8);
+				      HOST_WIDE_INT_1U, 8);
 #elif defined ASM_OUTPUT_ALIGNED_COMMON
       ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_slim",
-				 (unsigned HOST_WIDE_INT) 1, 8);
+				 HOST_WIDE_INT_1U, 8);
 #else
       ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_slim",
-			 (unsigned HOST_WIDE_INT) 1,
-			 (unsigned HOST_WIDE_INT) 1);
+			 HOST_WIDE_INT_1U,
+			 HOST_WIDE_INT_1U);
 #endif
     }
 
@@ -1276,6 +1276,15 @@ process_options (void)
 		    "Address Sanitizer");
 	  flag_check_pointer_bounds = 0;
 	}
+
+      if (flag_sanitize & SANITIZE_BOUNDS)
+	{
+	  error_at (UNKNOWN_LOCATION,
+		    "-fcheck-pointer-bounds is not supported with "
+		    "-fsanitize=bounds");
+	  flag_check_pointer_bounds = 0;
+	}
+
     }
 
   /* One region RA really helps to decrease the code size.  */
@@ -1885,6 +1894,7 @@ finalize (bool no_backend)
   if (flag_gen_aux_info)
     {
       fclose (aux_info_file);
+      aux_info_file = NULL;
       if (seen_error ())
 	unlink (aux_info_file_name);
     }
@@ -1899,10 +1909,14 @@ finalize (bool no_backend)
 	fatal_error (input_location, "error writing to %s: %m", asm_file_name);
       if (fclose (asm_out_file) != 0)
 	fatal_error (input_location, "error closing %s: %m", asm_file_name);
+      asm_out_file = NULL;
     }
 
   if (stack_usage_file)
-    fclose (stack_usage_file);
+    {
+      fclose (stack_usage_file);
+      stack_usage_file = NULL;
+    }
 
   if (!no_backend)
     {
@@ -2038,6 +2052,11 @@ toplev::start_timevars ()
 void
 toplev::run_self_tests ()
 {
+  if (no_backend)
+    {
+      error_at (UNKNOWN_LOCATION, "self-tests incompatible with -E");
+      return;
+    }
 #if CHECKING_P
   /* Reset some state.  */
   input_location = UNKNOWN_LOCATION;

@@ -136,6 +136,15 @@ flow_loop_dump (const struct loop *loop, FILE *file,
 	   loop_depth (loop), (long) (loop_outer (loop)
 				      ? loop_outer (loop)->num : -1));
 
+  if (loop->latch)
+    {
+      bool read_profile_p;
+      gcov_type nit = expected_loop_iterations_unbounded (loop, &read_profile_p);
+      if (read_profile_p && !loop->any_estimate)
+	fprintf (file, ";;  profile-based iteration count: %" PRIu64 "\n",
+		 (uint64_t) nit);
+    }
+
   fprintf (file, ";;  nodes:");
   bbs = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)
@@ -330,6 +339,7 @@ alloc_loop (void)
   loop->exits = ggc_cleared_alloc<loop_exit> ();
   loop->exits->next = loop->exits->prev = loop->exits;
   loop->can_be_parallel = false;
+  loop->constraints = 0;
   loop->nb_iterations_upper_bound = 0;
   loop->nb_iterations_likely_upper_bound = 0;
   loop->nb_iterations_estimate = 0;
@@ -1303,7 +1313,6 @@ DEBUG_FUNCTION void
 verify_loop_structure (void)
 {
   unsigned *sizes, i, j;
-  sbitmap irreds;
   basic_block bb, *bbs;
   struct loop *loop;
   int err = 0;
@@ -1311,7 +1320,6 @@ verify_loop_structure (void)
   unsigned num = number_of_loops (cfun);
   struct loop_exit *exit, *mexit;
   bool dom_available = dom_info_available_p (CDI_DOMINATORS);
-  sbitmap visited;
 
   if (loops_state_satisfies_p (LOOPS_NEED_FIXUP))
     {
@@ -1357,7 +1365,7 @@ verify_loop_structure (void)
       }
 
   /* Check the recorded loop father and sizes of loops.  */
-  visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  auto_sbitmap visited (last_basic_block_for_fn (cfun));
   bitmap_clear (visited);
   bbs = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun));
   FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
@@ -1404,7 +1412,6 @@ verify_loop_structure (void)
 	}
     }
   free (bbs);
-  sbitmap_free (visited);
 
   /* Check headers and latches.  */
   FOR_EACH_LOOP (loop, 0)
@@ -1471,7 +1478,7 @@ verify_loop_structure (void)
   if (loops_state_satisfies_p (LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS))
     {
       /* Record old info.  */
-      irreds = sbitmap_alloc (last_basic_block_for_fn (cfun));
+      auto_sbitmap irreds (last_basic_block_for_fn (cfun));
       FOR_EACH_BB_FN (bb, cfun)
 	{
 	  edge_iterator ei;
@@ -1523,7 +1530,6 @@ verify_loop_structure (void)
 	      e->flags &= ~(EDGE_ALL_FLAGS + 1);
 	    }
 	}
-      free (irreds);
     }
 
   /* Check the recorded loop exits.  */
@@ -1913,7 +1919,7 @@ get_estimated_loop_iterations (struct loop *loop, widest_int *nit)
    false, otherwise returns true.  */
 
 bool
-get_max_loop_iterations (struct loop *loop, widest_int *nit)
+get_max_loop_iterations (const struct loop *loop, widest_int *nit)
 {
   if (!loop->any_upper_bound)
     return false;
@@ -1927,7 +1933,7 @@ get_max_loop_iterations (struct loop *loop, widest_int *nit)
    on the number of iterations of LOOP could not be derived, returns -1.  */
 
 HOST_WIDE_INT
-get_max_loop_iterations_int (struct loop *loop)
+get_max_loop_iterations_int (const struct loop *loop)
 {
   widest_int nit;
   HOST_WIDE_INT hwi_nit;

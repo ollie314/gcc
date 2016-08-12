@@ -596,7 +596,7 @@ layout_decl (tree decl, unsigned int known_align)
     return;
 
   gcc_assert (code == VAR_DECL || code == PARM_DECL || code == RESULT_DECL
-	      || code == TYPE_DECL ||code == FIELD_DECL);
+	      || code == TYPE_DECL || code == FIELD_DECL);
 
   rtl = DECL_RTL_IF_SET (decl);
 
@@ -768,8 +768,8 @@ layout_decl (tree decl, unsigned int known_align)
     }
 }
 
-/* Given a VAR_DECL, PARM_DECL or RESULT_DECL, clears the results of
-   a previous call to layout_decl and calls it again.  */
+/* Given a VAR_DECL, PARM_DECL, RESULT_DECL, or FIELD_DECL, clears the
+   results of a previous call to layout_decl and calls it again.  */
 
 void
 relayout_decl (tree decl)
@@ -778,7 +778,8 @@ relayout_decl (tree decl)
   DECL_MODE (decl) = VOIDmode;
   if (!DECL_USER_ALIGN (decl))
     SET_DECL_ALIGN (decl, 0);
-  SET_DECL_RTL (decl, 0);
+  if (DECL_RTL_SET_P (decl))
+    SET_DECL_RTL (decl, 0);
 
   layout_decl (decl, 0);
 }
@@ -1808,6 +1809,11 @@ start_bitfield_representative (tree field)
   DECL_SIZE_UNIT (repr) = DECL_SIZE_UNIT (field);
   DECL_PACKED (repr) = DECL_PACKED (field);
   DECL_CONTEXT (repr) = DECL_CONTEXT (field);
+  /* There are no indirect accesses to this field.  If we introduce
+     some then they have to use the record alias set.  This makes
+     sure to properly conflict with [indirect] accesses to addressable
+     fields of the bitfield group.  */
+  DECL_NONADDRESSABLE_P (repr) = 1;
   return repr;
 }
 
@@ -2146,12 +2152,8 @@ layout_type (tree type)
 
     case COMPLEX_TYPE:
       TYPE_UNSIGNED (type) = TYPE_UNSIGNED (TREE_TYPE (type));
-
-      /* build_complex_type and fortran's gfc_build_complex_type have set the
-	 expected mode to allow having multiple complex types for multiple
-	 floating point types that have the same size such as the PowerPC with
-	 __ibm128 and __float128.  */
-      gcc_assert (TYPE_MODE (type) != VOIDmode);
+      SET_TYPE_MODE (type,
+		     GET_MODE_COMPLEX_MODE (TYPE_MODE (TREE_TYPE (type))));
 
       TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
       TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
@@ -2571,7 +2573,7 @@ initialize_sizetypes (void)
     }
 
   bprecision
-    = MIN (precision + BITS_PER_UNIT_LOG + 1, MAX_FIXED_MODE_SIZE);
+    = MIN (precision + LOG2_BITS_PER_UNIT + 1, MAX_FIXED_MODE_SIZE);
   bprecision
     = GET_MODE_PRECISION (smallest_mode_for_size (bprecision, MODE_INT));
   if (bprecision > HOST_BITS_PER_DOUBLE_INT)
@@ -2898,13 +2900,13 @@ get_mode_bounds (machine_mode mode, int sign,
     }
   else if (sign)
     {
-      min_val = -((unsigned HOST_WIDE_INT) 1 << (size - 1));
-      max_val = ((unsigned HOST_WIDE_INT) 1 << (size - 1)) - 1;
+      min_val = -(HOST_WIDE_INT_1U << (size - 1));
+      max_val = (HOST_WIDE_INT_1U << (size - 1)) - 1;
     }
   else
     {
       min_val = 0;
-      max_val = ((unsigned HOST_WIDE_INT) 1 << (size - 1) << 1) - 1;
+      max_val = (HOST_WIDE_INT_1U << (size - 1) << 1) - 1;
     }
 
   *mmin = gen_int_mode (min_val, target_mode);

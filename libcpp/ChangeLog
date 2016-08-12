@@ -1,3 +1,137 @@
+2016-08-06  David Malcolm  <dmalcolm@redhat.com>
+
+	PR bootstrap/72823
+	* charset.c (_cpp_valid_ucn): Replace overzealous assert with one
+	that allows for char_range to be non-NULL when loc_reader is NULL.
+
+2016-08-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* charset.c (cpp_substring_ranges::cpp_substring_ranges): New
+	constructor.
+	(cpp_substring_ranges::~cpp_substring_ranges): New destructor.
+	(cpp_substring_ranges::add_range): New method.
+	(cpp_substring_ranges::add_n_ranges): New method.
+	(_cpp_valid_ucn): Add "char_range" and "loc_reader" params; if
+	they are non-NULL, read position information from *loc_reader
+	and update char_range->m_finish accordingly.
+	(convert_ucn): Add "char_range", "loc_reader", and "ranges"
+	params.  If loc_reader is non-NULL, read location information from
+	it, and update *ranges accordingly, using char_range.
+	Conditionalize the conversion into tbuf on tbuf being non-NULL.
+	(convert_hex): Likewise, conditionalizing the call to
+	emit_numeric_escape on tbuf.
+	(convert_oct): Likewise.
+	(convert_escape): Add params "loc_reader" and "ranges".  If
+	loc_reader is non-NULL, read location information from it, and
+	update *ranges accordingly.  Conditionalize the conversion into
+	tbuf on tbuf being non-NULL.
+	(cpp_interpret_string): Rename to...
+	(cpp_interpret_string_1): ...this, adding params "loc_readers" and
+	"out".  Use "to" to conditionalize the initialization and usage of
+	"tbuf", such as running the converter.  If "loc_readers" is
+	non-NULL, use the instances within it, reading location
+	information from them, and passing them to convert_escape; likewise
+	write to "out" if loc_readers is non-NULL.  Check for leading
+	quote and issue an error if it is not present.  Update boundary
+	check from "== limit" to ">= limit" to protect against erroneous
+	location values to calls that are not parsing string literals.
+	(cpp_interpret_string): Reimplement in terms to
+	cpp_interpret_string_1.
+	(noop_error_cb): New function.
+	(cpp_interpret_string_ranges): New function.
+	(cpp_string_location_reader::cpp_string_location_reader): New
+	constructor.
+	(cpp_string_location_reader::get_next): New method.
+	* include/cpplib.h (class cpp_string_location_reader): New class.
+	(class cpp_substring_ranges): New class.
+	(cpp_interpret_string_ranges): New prototype.
+	* internal.h (_cpp_valid_ucn): Add params "char_range" and
+	"loc_reader".
+	* lex.c (forms_identifier_p): Pass NULL for new params to
+	_cpp_valid_ucn.
+
+2016-08-01  Andreas Schwab  <schwab@suse.de>
+
+	* include/cpplib.h: Fix comment typo.
+
+2016-07-27  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (source_location): Fix line numbers in
+	comment.
+
+2016-07-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES):
+	Move here from line-map.c.
+	(LINE_MAP_MAX_LOCATION_WITH_COLS): Likewise.
+	* line-map.c (LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES): Move from
+	here to line-map.h.
+	(LINE_MAP_MAX_LOCATION_WITH_COLS): Likewise.
+
+2016-06-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* directives.c (do_include_common): Pass on "location" to
+	_cpp_stack_include.
+	* errors.c (cpp_diagnostic): Reimplement in terms of...
+	(cpp_diagnostic_at): New function.
+	(cpp_error_at): New function.
+	(cpp_errno_filename): Add "loc" param and use it by using
+	cpp_error_at rather than cpp_error.
+	* files.c (find_file_in_dir): Add "loc" param and pass it to
+	open_file_failed.
+	(_cpp_find_file): Add "loc" param.  Use it to convert calls to
+	cpp_error to cpp_error_at, and pass it to find_file_in_dir and
+	open_file_failed.
+	(read_file_guts): Add "loc" param.  Use it to convert calls to
+	cpp_error to cpp_error_at.  Pass it to cpp_errno_filename.
+	(read_file): Add "loc" param.  Pass it to open_file_failed and
+	read_file_guts.
+	(should_stack_file): Add "loc" param.  Pass it to read_file.
+	(_cpp_stack_file): Add "loc" param.  Pass it to should_stack_file.
+	(_cpp_stack_include): Add "loc" param.  Pass it to
+	_cpp_find_file and _cpp_stack_file.
+	(open_file_failed): Add "loc" param.  Pass it to
+	cpp_errno_filename.
+	(_cpp_fake_include): Add 0 as a source_location in call to
+	_cpp_find_file.
+	(_cpp_compare_file_date): Likewise.
+	(cpp_push_include): Likewise for call to _cpp_stack_include.
+	(cpp_push_default_include): Likewise.
+	(_cpp_save_file_entries): Likewise for call to open_file_failed.
+	(_cpp_has_header): Likewise for call to _cpp_find_file.
+	* include/cpplib.h (cpp_errno_filename): Add source_location
+	param.
+	(cpp_error_at): New declaration.
+	* init.c (cpp_read_main_file): Add 0 as a source_location in calls
+	to _cpp_find_file and _cpp_stack_file.
+	* internal.h (_cpp_find_file): Add source_location param.
+	(_cpp_stack_file): Likewise.
+	(_cpp_stack_include): Likewise.
+
+2016-06-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (fixit_hint::get_start_loc): New pure virtual
+	function.
+	(fixit_hint::maybe_get_end_loc): Likewise.
+	(fixit_insert::get_start_loc): New function, implementing
+	fixit_hint::get_start_loc.
+	(fixit_insert::maybe_get_end_loc): New function, implementing
+	fixit_hint::maybe_get_end_loc.
+	(fixit_remove::get_start_loc): New function, implementing
+	fixit_hint::get_start_loc.
+	(fixit_remove::maybe_get_end_loc): New function, implementing
+	fixit_hint::maybe_get_end_loc.
+	(fixit_replace::get_start_loc): New function, implementing
+	fixit_hint::get_start_loc.
+	(fixit_replace::maybe_get_end_loc): New function, implementing
+	fixit_hint::maybe_get_end_loc.
+
+2016-06-21  John David Anglin  <danglin@gcc.gnu.org>
+
+	* line-map.c (location_adhoc_data_update): Use int64_t instead of
+	long long.
+	(get_combined_adhoc_loc): Likewise.
+
 2016-06-01  Eduard Sanou  <dhole@openmailbox.org>
 
 	* include/cpplib.h (cpp_callbacks): Add get_source_date_epoch

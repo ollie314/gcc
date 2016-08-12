@@ -193,6 +193,17 @@ class Node
   Location
   location() const;
 
+  // Return this node's AST formatted string.
+  std::string
+  ast_format(Gogo*) const;
+
+  // Return this node's detailed format string.
+  std::string
+  details() const;
+
+  std::string
+  op_format() const;
+
   // Return this node's escape state.
   Escape_state*
   state(Escape_context* context, Named_object* fn);
@@ -206,7 +217,9 @@ class Node
   void
   set_encoding(int enc);
 
-  // Is this node a sink?
+  bool
+  is_big(Escape_context*) const;
+
   bool
   is_sink() const;
 
@@ -249,6 +262,11 @@ class Node
   // escape type.
   static int
   max_encoding(int e, int etype);
+
+  // Return a modified encoding for an input parameter that flows into an
+  // output parameter.
+  static int
+  note_inout_flows(int e, int index, Level level);
 
  private:
   // The classification of this Node.
@@ -335,6 +353,10 @@ class Escape_context
   void
   set_current_function(Named_object* fn)
   { this->current_function_ = fn; }
+
+  // Return the name of the current function.
+  std::string
+  current_function_name() const;
 
   // Return true if this is the context for a mutually recursive set of functions.
   bool

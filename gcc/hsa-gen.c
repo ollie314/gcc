@@ -2045,7 +2045,7 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, HOST_WIDE_INT *output_bitsize = NULL,
       int unsignedp, volatilep, preversep;
 
       ref = get_inner_reference (ref, &bitsize, &bitpos, &varoffset, &mode,
-				 &unsignedp, &preversep, &volatilep, false);
+				 &unsignedp, &preversep, &volatilep);
 
       offset = bitpos;
       offset = wi::rshift (offset, LOG2_BITS_PER_UNIT, SIGNED);
@@ -5039,6 +5039,7 @@ gen_hsa_insn_for_internal_fn_call (gcall *stmt, hsa_bb *hbb)
     case IFN_FMIN:
     case IFN_FMAX:
       gen_hsa_insns_for_call_of_internal_fn (stmt, hbb);
+      break;
 
     default:
       HSA_SORRY_ATV (gimple_location (stmt),

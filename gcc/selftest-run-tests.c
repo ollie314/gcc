@@ -21,6 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "selftest.h"
+#include "tree.h"
+#include "langhooks.h"
 
 /* This function needed to be split out from selftest.c as it references
    tests from the whole source tree, and so is within
@@ -40,6 +42,9 @@ selftest::run_tests ()
   /* Run all the tests, in hand-coded order of (approximate) dependencies:
      run the tests for lowest-level code first.  */
 
+  /* Sanity-check for selftests themselves.  */
+  selftest_c_tests ();
+
   /* Low-level data structures.  */
   bitmap_c_tests ();
   et_forest_c_tests ();
@@ -49,6 +54,8 @@ selftest::run_tests ()
   pretty_print_c_tests ();
   wide_int_cc_tests ();
   ggc_tests_c_tests ();
+  sreal_c_tests ();
+  fibonacci_heap_c_tests ();
 
   /* Mid-level data structures.  */
   input_c_tests ();
@@ -59,12 +66,17 @@ selftest::run_tests ()
   /* Higher-level tests, or for components that other selftests don't
      rely on.  */
   diagnostic_show_locus_c_tests ();
+  diagnostic_c_tests ();
   fold_const_c_tests ();
   spellcheck_c_tests ();
+  spellcheck_tree_c_tests ();
   tree_cfg_c_tests ();
 
   /* This one relies on most of the above.  */
   function_tests_c_tests ();
+
+  /* Run any lang-specific selftests.  */
+  lang_hooks.run_lang_selftests ();
 
   /* Finished running tests.  */
   long finish_time = get_run_time ();

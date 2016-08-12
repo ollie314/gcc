@@ -29,7 +29,7 @@ int selftest::num_passes;
 /* Record the successful outcome of some aspect of a test.  */
 
 void
-selftest::pass (const char */*file*/, int /*line*/, const char */*msg*/)
+selftest::pass (const location &/*loc*/, const char */*msg*/)
 {
   num_passes++;
 }
@@ -37,11 +37,83 @@ selftest::pass (const char */*file*/, int /*line*/, const char */*msg*/)
 /* Report the failed outcome of some aspect of a test and abort.  */
 
 void
-selftest::fail (const char *file, int line, const char *msg)
+selftest::fail (const location &loc, const char *msg)
 {
-  fprintf (stderr,"%s:%i: FAIL: %s\n", file, line, msg);
-  /* TODO: add calling function name as well?  */
+  fprintf (stderr,"%s:%i: %s: FAIL: %s\n", loc.m_file, loc.m_line,
+	   loc.m_function, msg);
   abort ();
 }
+
+/* As "fail", but using printf-style formatted output.  */
+
+void
+selftest::fail_formatted (const location &loc, const char *fmt, ...)
+{
+  va_list ap;
+
+  fprintf (stderr, "%s:%i: %s: FAIL: ", loc.m_file, loc.m_line,
+	   loc.m_function);
+  va_start (ap, fmt);
+  vfprintf (stderr, fmt, ap);
+  va_end (ap);
+  fprintf (stderr, "\n");
+  abort ();
+}
+
+/* Implementation detail of ASSERT_STREQ.
+   Compare val_expected and val_actual with strcmp.  They ought
+   to be non-NULL; fail gracefully if either are NULL.  */
+
+void
+selftest::assert_streq (const location &loc,
+			const char *desc_expected, const char *desc_actual,
+			const char *val_expected, const char *val_actual)
+{
+  /* If val_expected is NULL, the test is buggy.  Fail gracefully.  */
+  if (val_expected == NULL)
+    ::selftest::fail_formatted
+	(loc, "ASSERT_STREQ (%s, %s) expected=NULL",
+	 desc_expected, desc_actual);
+  /* If val_actual is NULL, fail with a custom error message.  */
+  if (val_actual == NULL)
+    ::selftest::fail_formatted
+	(loc, "ASSERT_STREQ (%s, %s) expected=\"%s\" actual=NULL",
+	 desc_expected, desc_actual, val_expected);
+  if (0 == strcmp (val_expected, val_actual))
+    ::selftest::pass (loc, "ASSERT_STREQ");
+  else
+    ::selftest::fail_formatted
+	(loc, "ASSERT_STREQ (%s, %s) expected=\"%s\" actual=\"%s\"",
+	 desc_expected, desc_actual, val_expected, val_actual);
+}
+
+
+/* Selftests for the selftest system itself.  */
+
+namespace selftest {
+
+/* Sanity-check the ASSERT_ macros with various passing cases.  */
+
+static void
+test_assertions ()
+{
+  ASSERT_TRUE (true);
+  ASSERT_FALSE (false);
+  ASSERT_EQ (1, 1);
+  ASSERT_EQ_AT (SELFTEST_LOCATION, 1, 1);
+  ASSERT_NE (1, 2);
+  ASSERT_STREQ ("test", "test");
+  ASSERT_STREQ_AT (SELFTEST_LOCATION, "test", "test");
+}
+
+/* Run all of the selftests within this file.  */
+
+void
+selftest_c_tests ()
+{
+  test_assertions ();
+}
+
+} // namespace selftest
 
 #endif /* #if CHECKING_P */

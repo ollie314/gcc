@@ -14451,13 +14451,9 @@ static struct
    is treated like input-dependence.  */
 
 static int
-mips_adjust_cost (rtx_insn *insn ATTRIBUTE_UNUSED, rtx link,
-		  rtx_insn *dep ATTRIBUTE_UNUSED, int cost)
+mips_adjust_cost (rtx_insn *, int dep_type, rtx_insn *, int cost, unsigned int)
 {
-  if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT
-      && TUNE_20KC)
-    return cost;
-  if (REG_NOTE_KIND (link) != 0)
+  if (dep_type != 0 && (dep_type != REG_DEP_OUTPUT || !TUNE_20KC))
     return 0;
   return cost;
 }
@@ -17470,7 +17466,7 @@ r10k_safe_mem_expr_p (tree expr, unsigned HOST_WIDE_INT offset)
   int unsigned_p, reverse_p, volatile_p;
 
   inner = get_inner_reference (expr, &bitsize, &bitoffset, &var_offset, &mode,
-			       &unsigned_p, &reverse_p, &volatile_p, false);
+			       &unsigned_p, &reverse_p, &volatile_p);
   if (!DECL_P (inner) || !DECL_SIZE_UNIT (inner) || var_offset)
     return false;
 
@@ -21995,9 +21991,9 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 {
   if (!TARGET_HARD_FLOAT_ABI)
     return;
-  tree exceptions_var = create_tmp_var (MIPS_ATYPE_USI);
-  tree fcsr_orig_var = create_tmp_var (MIPS_ATYPE_USI);
-  tree fcsr_mod_var = create_tmp_var (MIPS_ATYPE_USI);
+  tree exceptions_var = create_tmp_var_raw (MIPS_ATYPE_USI);
+  tree fcsr_orig_var = create_tmp_var_raw (MIPS_ATYPE_USI);
+  tree fcsr_mod_var = create_tmp_var_raw (MIPS_ATYPE_USI);
   tree get_fcsr = mips_builtin_decls[MIPS_GET_FCSR];
   tree set_fcsr = mips_builtin_decls[MIPS_SET_FCSR];
   tree get_fcsr_hold_call = build_call_expr (get_fcsr, 0);

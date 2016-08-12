@@ -1422,6 +1422,11 @@ const __memx void *pfoo = &foo;
 Such code requires at least binutils 2.23, see
 @w{@uref{http://sourceware.org/PR13503,PR13503}}.
 
+@item
+On the reduced Tiny devices like ATtiny40, no address spaces are supported.
+Data can be put into and read from flash memory by means of
+attribute @code{progmem}, see @ref{AVR Variable Attributes}.
+
 @end itemize
 
 @subsection M32C Named Address Spaces
@@ -1863,15 +1868,16 @@ foo (float f, float g)
 @cindex compound literals
 @c The GNU C name for what C99 calls compound literals was "constructor expressions".
 
-ISO C99 supports compound literals.  A compound literal looks like
-a cast containing an initializer.  Its value is an object of the
-type specified in the cast, containing the elements specified in
-the initializer; it is an lvalue.  As an extension, GCC supports
-compound literals in C90 mode and in C++, though the semantics are
-somewhat different in C++.
+A compound literal looks like a cast of a brace-enclosed aggregate
+initializer list.  Its value is an object of the type specified in
+the cast, containing the elements specified in the initializer.
+Unlike the result of a cast, a compound literal is an lvalue.  ISO
+C99 and later support compound literals.  As an extension, GCC
+supports compound literals also in C90 mode and in C++, although
+as explained below, the C++ semantics are somewhat different.
 
-Usually, the specified type is a structure.  Assume that
-@code{struct foo} and @code{structure} are declared as shown:
+Usually, the specified type of a compound literal is a structure.  Assume
+that @code{struct foo} and @code{structure} are declared as shown:
 
 @smallexample
 struct foo @{int a; char b[2];@} structure;
@@ -1896,7 +1902,7 @@ This is equivalent to writing the following:
 
 You can also construct an array, though this is dangerous in C++, as
 explained below.  If all the elements of the compound literal are
-(made up of) simple constant expressions, suitable for use in
+(made up of) simple constant expressions suitable for use in
 initializers of objects of static storage duration, then the compound
 literal can be coerced to a pointer to its first element and used in
 such an initializer, as shown here:
@@ -1905,18 +1911,23 @@ such an initializer, as shown here:
 char **foo = (char *[]) @{ "x", "y", "z" @};
 @end smallexample
 
-Compound literals for scalar types and union types are
-also allowed, but then the compound literal is equivalent
-to a cast.
+Compound literals for scalar types and union types are also allowed.  In
+the following example the variable @code{i} is initialized to the value
+@code{2}, the result of incrementing the unnamed object created by
+the compound literal.
+
+@smallexample
+int i = ++(int) @{ 1 @};
+@end smallexample
 
 As a GNU extension, GCC allows initialization of objects with static storage
-duration by compound literals (which is not possible in ISO C99, because
+duration by compound literals (which is not possible in ISO C99 because
 the initializer is not a constant).
-It is handled as if the object is initialized only with the bracket
-enclosed list if the types of the compound literal and the object match.
-The initializer list of the compound literal must be constant.
+It is handled as if the object were initialized only with the brace-enclosed
+list if the types of the compound literal and the object match.
+The elements of the compound literal must be constant.
 If the object being initialized has array type of unknown size, the size is
-determined by compound literal size.
+determined by the size of the compound literal.
 
 @smallexample
 static struct foo x = (struct foo) @{1, 'a', 'b'@};
@@ -1934,22 +1945,21 @@ static int z[] = @{1, 0, 0@};
 
 In C, a compound literal designates an unnamed object with static or
 automatic storage duration.  In C++, a compound literal designates a
-temporary object, which only lives until the end of its
-full-expression.  As a result, well-defined C code that takes the
-address of a subobject of a compound literal can be undefined in C++,
-so the C++ compiler rejects the conversion of a temporary array to a pointer.
-For instance, if the array compound literal example above appeared
-inside a function, any subsequent use of @samp{foo} in C++ has
-undefined behavior because the lifetime of the array ends after the
-declaration of @samp{foo}.  
+temporary object that only lives until the end of its full-expression.
+As a result, well-defined C code that takes the address of a subobject
+of a compound literal can be undefined in C++, so G++ rejects
+the conversion of a temporary array to a pointer.  For instance, if
+the array compound literal example above appeared inside a function,
+any subsequent use of @code{foo} in C++ would have undefined behavior
+because the lifetime of the array ends after the declaration of @code{foo}.
 
-As an optimization, the C++ compiler sometimes gives array compound
-literals longer lifetimes: when the array either appears outside a
-function or has const-qualified type.  If @samp{foo} and its
-initializer had elements of @samp{char *const} type rather than
-@samp{char *}, or if @samp{foo} were a global variable, the array
-would have static storage duration.  But it is probably safest just to
-avoid the use of array compound literals in code compiled as C++.
+As an optimization, G++ sometimes gives array compound literals longer
+lifetimes: when the array either appears outside a function or has
+a @code{const}-qualified type.  If @code{foo} and its initializer had
+elements of type @code{char *const} rather than @code{char *}, or if
+@code{foo} were a global variable, the array would have static storage
+duration.  But it is probably safest just to avoid the use of array
+compound literals in C++ code.
 
 @node Designated Inits
 @section Designated Initializers
@@ -2140,11 +2150,12 @@ case 1...5:
 @cindex cast to a union
 @cindex union, casting to a
 
-A cast to union type is similar to other casts, except that the type
-specified is a union type.  You can specify the type either with
-@code{union @var{tag}} or with a typedef name.  A cast to union is actually
-a constructor, not a cast, and hence does not yield an lvalue like
-normal casts.  (@xref{Compound Literals}.)
+A cast to union type looks similar to other casts, except that the type
+specified is a union type.  You can specify the type either with the
+@code{union} keyword or with a @code{typedef} name that refers to
+a union.  A cast to a union actually creates a compound literal and
+yields an lvalue, not an rvalue like true casts do.
+(@xref{Compound Literals}.)
 
 The types that may be cast to the union type are those of the members
 of the union.  Thus, given the following union and variables:
@@ -2841,6 +2852,12 @@ semantically equivalent function.
 If @option{-finstrument-functions} is given, profiling function calls are
 generated at entry and exit of most user-compiled functions.
 Functions with this attribute are not so instrumented.
+
+@item no_profile_instrument_function
+@cindex @code{no_profile_instrument_function} function attribute
+The @code{no_profile_instrument_function} attribute on functions is used
+to inform the compiler that it should not process any profile feedback based
+optimization code instrumentation.
 
 @item no_reorder
 @cindex @code{no_reorder} function attribute
@@ -5847,10 +5864,12 @@ attribute accomplishes this by putting respective variables into a
 section whose name starts with @code{.progmem}.
 
 This attribute works similar to the @code{section} attribute
-but adds additional checking. Notice that just like the
-@code{section} attribute, @code{progmem} affects the location
-of the data but not how this data is accessed.
+but adds additional checking.
 
+@table @asis
+@item @bullet{}@tie{} Ordinary AVR cores with 32 general purpose registers:
+@code{progmem} affects the location
+of the data but not how this data is accessed.
 In order to read data located with the @code{progmem} attribute
 (inline) assembler must be used.
 @smallexample
@@ -5872,6 +5891,28 @@ normally resides in the data memory (RAM).
 
 See also the @ref{AVR Named Address Spaces} section for
 an alternate way to locate and access data in flash memory.
+
+@item @bullet{}@tie{}Reduced AVR Tiny cores like ATtiny40:
+The compiler adds @code{0x4000}
+to the addresses of objects and declarations in @code{progmem} and locates
+the objects in flash memory, namely in section @code{.progmem.data}.
+The offset is needed because the flash memory is visible in the RAM
+address space starting at address @code{0x4000}.
+
+Data in @code{progmem} can be accessed by means of ordinary C@tie{}code,
+no special functions or macros are needed.
+
+@smallexample
+/* var is located in flash memory */
+extern const int var[2] __attribute__((progmem));
+
+int read_var (int i)
+@{
+    return var[i];
+@}
+@end smallexample
+
+@end table
 
 @item io
 @itemx io (@var{addr})
@@ -9833,8 +9874,8 @@ performed in infinite signed precision, these built-in functions have fully defi
 behavior for all argument values.
 
 The first built-in function allows arbitrary integral types for operands and
-the result type must be pointer to some integer type, the rest of the built-in
-functions have explicit integer types.
+the result type must be pointer to some integral type other than enumerated or
+Boolean type, the rest of the built-in functions have explicit integer types.
 
 The compiler will attempt to use hardware instructions to implement
 these built-in functions where possible, like conditional jump on overflow
@@ -9879,7 +9920,8 @@ would overflow.
 These built-in functions are similar to @code{__builtin_add_overflow},
 @code{__builtin_sub_overflow}, or @code{__builtin_mul_overflow}, except that
 they don't store the result of the arithmetic operation anywhere and the
-last argument is not a pointer, but some integral expression.
+last argument is not a pointer, but some expression with integral type other
+than enumerated or Boolean type.
 
 The built-in functions promote the first two operands into infinite precision signed type
 and perform addition on those promoted operands. The result is then
@@ -9887,6 +9929,9 @@ cast to the type of the third argument.  If the cast result is equal to the infi
 precision result, the built-in functions return false, otherwise they return true.
 The value of the third argument is ignored, just the side-effects in the third argument
 are evaluated, and no integral argument promotions are performed on the last argument.
+If the third argument is a bit-field, the type used for the result cast has the
+precision and signedness of the given bit-field, rather than precision and signedness
+of the underlying type.
 
 For example, the following macro can be used to portably check, at
 compile-time, whether or not adding two constant integers will overflow,
@@ -12507,6 +12552,14 @@ __builtin_avr_insert_bits (0xffff3210, bits, val)
 __builtin_avr_insert_bits (0x01234567, bits, 0)
 @end smallexample
 
+@smallexample
+void __builtin_avr_nops (unsigned count)
+@end smallexample
+
+@noindent
+Insert @code{count} @code{NOP} instructions.
+The number of instructions must be a compile-time integer constant.
+
 @node Blackfin Built-in Functions
 @subsection Blackfin Built-in Functions
 
@@ -14781,6 +14834,40 @@ The @code{__builtin_ppc_mftb} function always generates one instruction and
 returns the Time Base Register value as an unsigned long, throwing away
 the most significant word on 32-bit environments.
 
+Additional built-in functions are available for the 64-bit PowerPC
+family of processors, for efficient use of 128-bit floating point
+(@code{__float128}) values.
+
+The following floating-point built-in functions are available with
+@code{-mfloat128} and Altivec support.  All of them implement the
+function that is part of the name.
+
+@smallexample
+__float128 __builtin_fabsq (__float128)
+__float128 __builtin_copysignq (__float128, __float128)
+@end smallexample
+
+The following built-in functions are available with @code{-mfloat128}
+and Altivec support.
+
+@table @code
+@item __float128 __builtin_infq (void)
+Similar to @code{__builtin_inf}, except the return type is @code{__float128}.
+@findex __builtin_infq
+
+@item __float128 __builtin_huge_valq (void)
+Similar to @code{__builtin_huge_val}, except the return type is @code{__float128}.
+@findex __builtin_huge_valq
+
+@item __float128 __builtin_nanq (void)
+Similar to @code{__builtin_nan}, except the return type is @code{__float128}.
+@findex __builtin_nanq
+
+@item __float128 __builtin_nansq (void)
+Similar to @code{__builtin_nans}, except the return type is @code{__float128}.
+@findex __builtin_nansq
+@end table
+
 The following built-in functions are available for the PowerPC family
 of processors, starting with ISA 2.06 or later (@option{-mcpu=power7}
 or @option{-mpopcntd}):
@@ -14804,12 +14891,48 @@ The @code{__builtin_divde}, @code{__builtin_divdeo},
 64-bit environment support ISA 2.06 or later.
 
 The following built-in functions are available for the PowerPC family
-of processors, starting with ISA 3.0 or later (@option{-mcpu=power9})
-or with @option{-mmodulo}:
+of processors, starting with ISA 3.0 or later (@option{-mcpu=power9}):
 @smallexample
 long long __builtin_darn (void);
 long long __builtin_darn_raw (void);
 int __builtin_darn_32 (void);
+
+int __builtin_dfp_dtstsfi_lt (unsigned int comparison, _Decimal64 value);
+int __builtin_dfp_dtstsfi_lt (unsigned int comparison, _Decimal128 value);
+int __builtin_dfp_dtstsfi_lt_dd (unsigned int comparison, _Decimal64 value);
+int __builtin_dfp_dtstsfi_lt_td (unsigned int comparison, _Decimal128 value);
+
+int __builtin_dfp_dtstsfi_gt (unsigned int comparison, _Decimal64 value);
+int __builtin_dfp_dtstsfi_gt (unsigned int comparison, _Decimal128 value);
+int __builtin_dfp_dtstsfi_gt_dd (unsigned int comparison, _Decimal64 value);
+int __builtin_dfp_dtstsfi_gt_td (unsigned int comparison, _Decimal128 value);
+
+int __builtin_dfp_dtstsfi_eq (unsigned int comparison, _Decimal64 value);
+int __builtin_dfp_dtstsfi_eq (unsigned int comparison, _Decimal128 value);
+int __builtin_dfp_dtstsfi_eq_dd (unsigned int comparison, _Decimal64 value);
+int __builtin_dfp_dtstsfi_eq_td (unsigned int comparison, _Decimal128 value);
+
+int __builtin_dfp_dtstsfi_ov (unsigned int comparison, _Decimal64 value);
+int __builtin_dfp_dtstsfi_ov (unsigned int comparison, _Decimal128 value);
+int __builtin_dfp_dtstsfi_ov_dd (unsigned int comparison, _Decimal64 value);
+int __builtin_dfp_dtstsfi_ov_td (unsigned int comparison, _Decimal128 value);
+
+unsigned int scalar_extract_exp (double source);
+unsigned long long int scalar_extract_sig (double source);
+
+double
+scalar_insert_exp (unsigned long long int significand, unsigned long long int exponent);
+
+int scalar_cmp_exp_gt (double arg1, double arg2);
+int scalar_cmp_exp_lt (double arg1, double arg2);
+int scalar_cmp_exp_eq (double arg1, double arg2);
+int scalar_cmp_exp_unordered (double arg1, double arg2);
+
+int scalar_test_data_class (float source, unsigned int condition);
+int scalar_test_data_class (double source, unsigned int condition);
+
+int scalar_test_neg (float source);
+int scalar_test_neg (double source);
 @end smallexample
 
 The @code{__builtin_darn} and @code{__builtin_darn_raw}
@@ -14819,6 +14942,82 @@ The @code{__builtin_darn} function provides a 64-bit conditioned
 random number.  The @code{__builtin_darn_raw} function provides a
 64-bit raw random number.  The @code{__builtin_darn_32} function
 provides a 32-bit random number.
+
+The @code{scalar_extract_sig} and @code{scalar_insert_exp}
+functions require a 64-bit environment supporting ISA 3.0 or later.
+The @code{scalar_extract_exp} and @code{vec_extract_sig} built-in
+functions return the significand and exponent respectively of their
+@code{source} arguments.  The
+@code{scalar_insert_exp} built-in function returns a double-precision
+floating point value that is constructed by assembling the values of its
+@code{significand} and @code{exponent} arguments.  The sign of the
+result is copied from the most significant bit of the
+@code{significand} argument.  The significand and exponent components
+of the result are composed of the least significant 11 bits of the
+@code{significand} argument and the least significant 52 bits of the
+@code{exponent} argument.
+
+The @code{scalar_cmp_exp_gt}, @code{scalar_cmp_exp_lt},
+@code{scalar_cmp_exp_eq}, and @code{scalar_cmp_exp_unordered} built-in
+functions return a non-zero value if @code{arg1} is greater than, less
+than, equal to, or not comparable to @code{arg2} respectively.  The
+arguments are not comparable if one or the other equals NaN (not a
+number). 
+
+The @code{scalar_test_data_class} built-in functions return a non-zero
+value if any of the condition tests enabled by the value of the
+@code{condition} variable are true.  The
+@code{condition} argument must be an unsigned integer with value not
+exceeding 127.  The
+@code{condition} argument is encoded as a bitmask with each bit
+enabling the testing of a different condition, as characterized by the
+following:
+@smallexample
+0x40    Test for NaN
+0x20    Test for +Infinity
+0x10    Test for -Infinity
+0x08    Test for +Zero
+0x04    Test for -Zero
+0x02    Test for +Denormal
+0x01    Test for -Denormal
+@end smallexample
+
+If all of the enabled test conditions are false, the return value is 0.
+
+The @code{scalar_test_neg} built-in functions return a non-zero value
+if their @code{source} argument holds a negative value.
+
+The @code{__builtin_dfp_dtstsfi_lt} function returns a non-zero value
+if and only if the number of signficant digits of its @code{value} argument
+is less than its @code{comparison} argument.  The
+@code{__builtin_dfp_dtstsfi_lt_dd} and
+@code{__builtin_dfp_dtstsfi_lt_td} functions behave similarly, but
+require that the type of the @code{value} argument be
+@code{__Decimal64} and @code{__Decimal128} respectively.
+
+The @code{__builtin_dfp_dtstsfi_gt} function returns a non-zero value
+if and only if the number of signficant digits of its @code{value} argument
+is greater than its @code{comparison} argument.  The
+@code{__builtin_dfp_dtstsfi_gt_dd} and
+@code{__builtin_dfp_dtstsfi_gt_td} functions behave similarly, but
+require that the type of the @code{value} argument be
+@code{__Decimal64} and @code{__Decimal128} respectively.
+
+The @code{__builtin_dfp_dtstsfi_eq} function returns a non-zero value
+if and only if the number of signficant digits of its @code{value} argument
+equals its @code{comparison} argument.  The
+@code{__builtin_dfp_dtstsfi_eq_dd} and
+@code{__builtin_dfp_dtstsfi_eq_td} functions behave similarly, but
+require that the type of the @code{value} argument be
+@code{__Decimal64} and @code{__Decimal128} respectively.
+
+The @code{__builtin_dfp_dtstsfi_ov} function returns a non-zero value
+if and only if its @code{value} argument has an undefined number of
+significant digits, such as when @code{value} is an encoding of @code{NaN}.
+The @code{__builtin_dfp_dtstsfi_ov_dd} and
+@code{__builtin_dfp_dtstsfi_ov_td} functions behave similarly, but
+require that the type of the @code{value} argument be
+@code{__Decimal64} and @code{__Decimal128} respectively.
 
 The following built-in functions are available for the PowerPC family
 of processors when hardware decimal floating point
@@ -17405,8 +17604,8 @@ int __builtin_bcdsub_gt (vector __int128_t, vector__int128_t);
 int __builtin_bcdsub_ov (vector __int128_t, vector__int128_t);
 @end smallexample
 
-If the ISA 3.0 additions to the vector/scalar (power9-vector)
-instruction set are available:
+If the ISA 3.0 instruction set additions (@option{-mcpu=power9})
+are available:
 
 @smallexample
 vector long long vec_vctz (vector long long);
@@ -17442,9 +17641,8 @@ vector long long vec_vprtybd (vector long long);
 vector unsigned long long vec_vprtybd (vector unsigned long long);
 @end smallexample
 
-
-If the ISA 3.0 additions to the vector/scalar (power9-vector)
-instruction set are available for 64-bit targets:
+On 64-bit targets, if the ISA 3.0 additions (@option{-mcpu=power9})
+are available:
 
 @smallexample
 vector long vec_vprtyb (vector long);
@@ -17460,8 +17658,7 @@ vector __uint128_t vec_vprtybd (vector __uint128_t);
 @end smallexample
 
 The following built-in vector functions are available for the PowerPC family
-of processors, starting with ISA 3.0 or later (@option{-mcpu=power9})
-or with @option{-mpower9-vector}:
+of processors, starting with ISA 3.0 or later (@option{-mcpu=power9}):
 @smallexample
 __vector unsigned char
 vec_slv (__vector unsigned char src, __vector unsigned char shift_distance);
@@ -17492,6 +17689,90 @@ result returned from the @code{vec_srv} function is a
 @code{0xff & (*((unsigned short *)(srv_array + i)) >>
 (0x07 & shift_distance[i]))},
 with this resulting value coerced to the @code{unsigned char} type.
+
+The following built-in functions are available for the PowerPC family
+of processors, starting with ISA 3.0 or later (@option{-mcpu=power9}):
+@smallexample
+__vector unsigned char
+vec_absd (__vector unsigned char arg1, __vector unsigned char arg2);
+__vector unsigned short
+vec_absd (__vector unsigned short arg1, __vector unsigned short arg2);
+__vector unsigned int
+vec_absd (__vector unsigned int arg1, __vector unsigned int arg2);
+
+__vector unsigned char
+vec_absdb (__vector unsigned char arg1, __vector unsigned char arg2);
+__vector unsigned short
+vec_absdh (__vector unsigned short arg1, __vector unsigned short arg2);
+__vector unsigned int
+vec_absdw (__vector unsigned int arg1, __vector unsigned int arg2);
+@end smallexample
+
+The @code{vec_absd}, @code{vec_absdb}, @code{vec_absdh}, and
+@code{vec_absdw} built-in functions each computes the absolute
+differences of the pairs of vector elements supplied in its two vector
+arguments, placing the absolute differences into the corresponding
+elements of the vector result.
+
+The following built-in functions are available for the PowerPC family
+of processors, starting with ISA 3.0 or later (@option{-mcpu=power9}):
+@smallexample
+__vector int
+vec_extract_exp (__vector float source);
+__vector long long int
+vec_extract_exp (__vector double source);
+
+__vector int
+vec_extract_sig (__vector float source);
+__vector long long int
+vec_extract_sig (__vector double source);
+
+__vector float
+vec_insert_exp (__vector unsigned int significands,  __vector unsigned int exponents);
+__vector double
+vec_insert_exp (__vector unsigned long long int significands,
+                __vector unsigned long long int exponents);
+
+__vector int vec_test_data_class (__vector float source, unsigned int condition);
+__vector long long int vec_test_data_class (__vector double source, unsigned int condition);
+@end smallexample
+
+The @code{vec_extract_sig} and @code{vec_extract_exp} built-in
+functions return vectors representing the significands and exponents
+of their @code{source} arguments respectively.  The
+@code{vec_insert_exp} built-in functions return a vector of single- or
+double-precision floating
+point values constructed by assembling the values of their
+@code{significands} and @code{exponents} arguments into the
+corresponding elements of the returned vector.  The sign of each
+element of the result is copied from the most significant bit of the
+corresponding entry within the @code{significands} argument.  The
+significand and exponent components of each element of the result are
+composed of the least significant bits of the corresponding
+@code{significands} element and the least significant bits of the
+corresponding @code{exponents} element.
+
+The @code{vec_test_data_class} built-in function returns a vector
+representing the results of testing the @code{source} vector for the
+condition selected by the @code{condition} argument.  The
+@code{condition} argument must be an unsigned integer with value not
+exceeding 127.  The
+@code{condition} argument is encoded as a bitmask with each bit
+enabling the testing of a different condition, as characterized by the
+following:
+@smallexample
+0x40    Test for NaN
+0x20    Test for +Infinity
+0x10    Test for -Infinity
+0x08    Test for +Zero
+0x04    Test for -Zero
+0x02    Test for +Denormal
+0x01    Test for -Denormal
+@end smallexample
+
+If any of the enabled test conditions is true, the corresponding entry
+in the result vector is -1.  Otherwise (all of the enabled test
+conditions are false), the corresponding entry of the result vector is 0.
 
 If the cryptographic instructions are enabled (@option{-mcrypto} or
 @option{-mcpu=power8}), the following builtins are enabled.
@@ -17553,9 +17834,9 @@ The second argument to the @var{__builtin_crypto_vshasigmad} and
 integer that is 0 or 1.  The third argument to these builtin functions
 must be a constant integer in the range of 0 to 15.
 
-If the ISA 3.0 additions to the vector/scalar (power9-vector)
-instruction set are available, the following additional functions are
-available for both 32-bit and 64-bit targets.
+If the ISA 3.0 instruction set additions 
+are enabled (@option{-mcpu=power9}), the following additional
+functions are available for both 32-bit and 64-bit targets.
 
 vector short vec_xl (int, vector short *);
 vector short vec_xl (int, short *);
@@ -18445,28 +18726,19 @@ integers, these use @code{V4SI}.  Finally, some instructions operate on an
 entire vector register, interpreting it as a 128-bit integer, these use mode
 @code{TI}.
 
-In 64-bit mode, the x86-64 family of processors uses additional built-in
+The x86-32 and x86-64 family of processors use additional built-in
 functions for efficient use of @code{TF} (@code{__float128}) 128-bit
 floating point and @code{TC} 128-bit complex floating-point values.
 
-The following floating-point built-in functions are available in 64-bit
-mode.  All of them implement the function that is part of the name.
+The following floating-point built-in functions are always available.  All
+of them implement the function that is part of the name.
 
 @smallexample
 __float128 __builtin_fabsq (__float128)
 __float128 __builtin_copysignq (__float128, __float128)
 @end smallexample
 
-The following built-in function is always available.
-
-@table @code
-@item void __builtin_ia32_pause (void)
-Generates the @code{pause} machine instruction with a compiler memory
-barrier.
-@end table
-
-The following floating-point built-in functions are made available in the
-64-bit mode.
+The following built-in functions are always available.
 
 @table @code
 @item __float128 __builtin_infq (void)
@@ -18476,6 +18748,22 @@ Similar to @code{__builtin_inf}, except the return type is @code{__float128}.
 @item __float128 __builtin_huge_valq (void)
 Similar to @code{__builtin_huge_val}, except the return type is @code{__float128}.
 @findex __builtin_huge_valq
+
+@item __float128 __builtin_nanq (void)
+Similar to @code{__builtin_nan}, except the return type is @code{__float128}.
+@findex __builtin_nanq
+
+@item __float128 __builtin_nansq (void)
+Similar to @code{__builtin_nans}, except the return type is @code{__float128}.
+@findex __builtin_nansq
+@end table
+
+The following built-in function is always available.
+
+@table @code
+@item void __builtin_ia32_pause (void)
+Generates the @code{pause} machine instruction with a compiler memory
+barrier.
 @end table
 
 The following built-in functions are always available and can be used to

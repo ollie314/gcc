@@ -656,8 +656,8 @@ maybe_convert_cond (tree cond)
       && !TREE_NO_WARNING (cond)
       && warn_parentheses)
     {
-      warning (OPT_Wparentheses,
-	       "suggest parentheses around assignment used as truth value");
+      warning_at (EXPR_LOC_OR_LOC (cond, input_location), OPT_Wparentheses,
+		  "suggest parentheses around assignment used as truth value");
       TREE_NO_WARNING (cond) = 1;
     }
 
@@ -715,6 +715,7 @@ begin_if_stmt (void)
   scope = do_pushlevel (sk_cond);
   r = build_stmt (input_location, IF_STMT, NULL_TREE,
 		  NULL_TREE, NULL_TREE, scope);
+  current_binding_level->this_entity = r;
   begin_cond (&IF_COND (r));
   return r;
 }
@@ -722,12 +723,18 @@ begin_if_stmt (void)
 /* Process the COND of an if-statement, which may be given by
    IF_STMT.  */
 
-void
+tree
 finish_if_stmt_cond (tree cond, tree if_stmt)
 {
-  finish_cond (&IF_COND (if_stmt), maybe_convert_cond (cond));
+  cond = maybe_convert_cond (cond);
+  if (IF_STMT_CONSTEXPR_P (if_stmt)
+      && require_potential_rvalue_constant_expression (cond)
+      && !value_dependent_expression_p (cond))
+    cond = cxx_constant_value (cond, NULL_TREE);
+  finish_cond (&IF_COND (if_stmt), cond);
   add_stmt (if_stmt);
   THEN_CLAUSE (if_stmt) = push_stmt_list ();
+  return cond;
 }
 
 /* Finish the then-clause of an if-statement, which may be given by
@@ -2245,7 +2252,7 @@ perform_koenig_lookup (cp_expr fn, vec<tree, va_gc> *args,
       if (!fn)
 	{
 	  /* The unqualified name could not be resolved.  */
-	  if (complain)
+	  if (complain & tf_error)
 	    fn = unqualified_fn_lookup_error (cp_expr (identifier, loc));
 	  else
 	    fn = identifier;
@@ -2916,7 +2923,7 @@ begin_class_definition (tree t)
   /* Reset the interface data, at the earliest possible
      moment, as it might have been set via a class foo;
      before.  */
-  if (! TYPE_ANONYMOUS_P (t))
+  if (! TYPE_UNNAMED_P (t))
     {
       struct c_fileinfo *finfo = \
 	get_fileinfo (LOCATION_FILE (input_location));
@@ -3548,6 +3555,12 @@ finish_id_expression (tree id_expression,
 	 resolve the name at instantiation time.  */
       if (dependent_p)
 	{
+	  if (DECL_P (decl)
+	      && any_dependent_type_attributes_p (DECL_ATTRIBUTES (decl)))
+	    /* Dependent type attributes on the decl mean that the TREE_TYPE is
+	       wrong, so just return the identifier.  */
+	    return id_expression;
+
 	  /* If we found a variable, then name lookup during the
 	     instantiation will always resolve to the same VAR_DECL
 	     (or an instantiation thereof).  */
@@ -4057,8 +4070,11 @@ simplify_aggr_init_expr (tree *tp)
 				    aggr_init_expr_nargs (aggr_init_expr),
 				    AGGR_INIT_EXPR_ARGP (aggr_init_expr));
   TREE_NOTHROW (call_expr) = TREE_NOTHROW (aggr_init_expr);
-  CALL_EXPR_LIST_INIT_P (call_expr) = CALL_EXPR_LIST_INIT_P (aggr_init_expr);
   CALL_FROM_THUNK_P (call_expr) = AGGR_INIT_FROM_THUNK_P (aggr_init_expr);
+  CALL_EXPR_OPERATOR_SYNTAX (call_expr)
+    = CALL_EXPR_OPERATOR_SYNTAX (aggr_init_expr);
+  CALL_EXPR_ORDERED_ARGS (call_expr) = CALL_EXPR_ORDERED_ARGS (aggr_init_expr);
+  CALL_EXPR_REVERSE_ARGS (call_expr) = CALL_EXPR_REVERSE_ARGS (aggr_init_expr);
 
   if (style == ctor)
     {
@@ -4484,7 +4500,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FROM)
 	  && !type_dependent_expression_p (t))
 	{
-	  if (DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
+	  if (TREE_CODE (TREE_OPERAND (t, 1)) == FIELD_DECL
+	      && DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"bit-field %qE in %qs clause",
@@ -4493,7 +4510,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	    }
 	  while (TREE_CODE (t) == COMPONENT_REF)
 	    {
-	      if (TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == UNION_TYPE)
+	      if (TREE_TYPE (TREE_OPERAND (t, 0))
+		  && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == UNION_TYPE)
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "%qE is a member of a union", t);
@@ -4501,6 +4519,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		}
 	      t = TREE_OPERAND (t, 0);
 	    }
+	  if (REFERENCE_REF_P (t))
+	    t = TREE_OPERAND (t, 0);
 	}
       if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	{
@@ -4995,6 +5015,10 @@ handle_omp_array_sections (tree c, enum c_omp_region_type ort)
 	      case GOMP_MAP_ALWAYS_TOFROM:
 	      case GOMP_MAP_RELEASE:
 	      case GOMP_MAP_DELETE:
+	      case GOMP_MAP_FORCE_TO:
+	      case GOMP_MAP_FORCE_FROM:
+	      case GOMP_MAP_FORCE_TOFROM:
+	      case GOMP_MAP_FORCE_PRESENT:
 		OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION (c) = 1;
 		break;
 	      default:
@@ -6620,6 +6644,8 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		    {
 		      while (TREE_CODE (t) == COMPONENT_REF)
 			t = TREE_OPERAND (t, 0);
+		      if (REFERENCE_REF_P (t))
+			t = TREE_OPERAND (t, 0);
 		      if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
 			break;
 		      if (bitmap_bit_p (&map_head, DECL_UID (t)))
@@ -6661,7 +6687,8 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	    {
 	      if (type_dependent_expression_p (t))
 		break;
-	      if (DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
+	      if (TREE_CODE (TREE_OPERAND (t, 1)) == FIELD_DECL
+		  && DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "bit-field %qE in %qs clause",
@@ -6677,8 +6704,9 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		}
 	      while (TREE_CODE (t) == COMPONENT_REF)
 		{
-		  if (TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0)))
-		      == UNION_TYPE)
+		  if (TREE_TYPE (TREE_OPERAND (t, 0))
+		      && (TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0)))
+			  == UNION_TYPE))
 		    {
 		      error_at (OMP_CLAUSE_LOCATION (c),
 				"%qE is a member of a union", t);
@@ -6689,6 +6717,8 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		}
 	      if (remove)
 		break;
+	      if (REFERENCE_REF_P (t))
+		t = TREE_OPERAND (t, 0);
 	      if (VAR_P (t) || TREE_CODE (t) == PARM_DECL)
 		{
 		  if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
@@ -8558,7 +8588,7 @@ finish_omp_cancel (tree clauses)
     mask = 8;
   else
     {
-      error ("%<#pragma omp cancel must specify one of "
+      error ("%<#pragma omp cancel%> must specify one of "
 	     "%<parallel%>, %<for%>, %<sections%> or %<taskgroup%> clauses");
       return;
     }
@@ -8595,7 +8625,7 @@ finish_omp_cancellation_point (tree clauses)
     mask = 8;
   else
     {
-      error ("%<#pragma omp cancellation point must specify one of "
+      error ("%<#pragma omp cancellation point%> must specify one of "
 	     "%<parallel%>, %<for%>, %<sections%> or %<taskgroup%> clauses");
       return;
     }
@@ -9262,6 +9292,10 @@ apply_deduced_return_type (tree fco, tree return_type)
   if (TREE_TYPE (result) == return_type)
     return;
 
+  if (!processing_template_decl && !VOID_TYPE_P (return_type)
+      && !complete_type_or_else (return_type, NULL_TREE))
+    return;
+
   /* We already have a DECL_RESULT from start_preparsed_function.
      Now we need to redo the work it and allocate_struct_function
      did to reflect the new type.  */
@@ -9277,8 +9311,6 @@ apply_deduced_return_type (tree fco, tree return_type)
 
   if (!processing_template_decl)
     {
-      if (!VOID_TYPE_P (TREE_TYPE (result)))
-	complete_type_or_else (TREE_TYPE (result), NULL_TREE);
       bool aggr = aggregate_value_p (result, fco);
 #ifdef PCC_STATIC_STRUCT_RETURN
       cfun->returns_pcc_struct = aggr;

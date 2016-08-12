@@ -18,6 +18,9 @@
 ;; along with GCC; see the file COPYING3.  If not see
 ;; <http://www.gnu.org/licenses/>.
 
+;; Iterator for comparison types
+(define_code_iterator CMP_TEST [eq lt gt unordered])
+
 ;; Iterator for both scalar and vector floating point types supported by VSX
 (define_mode_iterator VSX_B [DF V4SF V2DF])
 
@@ -260,8 +263,23 @@
 			    (V2DI	"wi")])
 
 ;; Iterators for loading constants with xxspltib
-(define_mode_iterator VSINT_84  [V4SI V2DI])
+(define_mode_iterator VSINT_84  [V4SI V2DI DI])
 (define_mode_iterator VSINT_842 [V8HI V4SI V2DI])
+
+;; Iterator for ISA 3.0 vector extract/insert of integer vectors
+(define_mode_iterator VSX_EXTRACT_I [V16QI V8HI V4SI])
+
+;; Mode attribute to give the correct predicate for ISA 3.0 vector extract and
+;; insert to validate the operand number.
+(define_mode_attr VSX_EXTRACT_PREDICATE [(V16QI "const_0_to_15_operand")
+					 (V8HI  "const_0_to_7_operand")
+					 (V4SI  "const_0_to_3_operand")])
+
+;; Mode attribute to give the constraint for vector extract and insert
+;; operations.
+(define_mode_attr VSX_EX [(V16QI "v")
+			  (V8HI  "v")
+			  (V4SI  "wa")])
 
 ;; Constants for creating unspecs
 (define_c_enum "unspec"
@@ -293,6 +311,18 @@
    UNSPEC_VSX_XVCVDPSXDS
    UNSPEC_VSX_XVCVDPUXDS
    UNSPEC_VSX_SIGN_EXTEND
+   UNSPEC_P9_MEMORY
+   UNSPEC_VSX_VSLO
+   UNSPEC_VSX_EXTRACT
+   UNSPEC_VSX_SXEXPDP
+   UNSPEC_VSX_SXSIGDP
+   UNSPEC_VSX_SIEXPDP
+   UNSPEC_VSX_SCMPEXPDP
+   UNSPEC_VSX_STSTDC
+   UNSPEC_VSX_VXEXP
+   UNSPEC_VSX_VXSIG
+   UNSPEC_VSX_VIEXP
+   UNSPEC_VSX_VTSTDC
   ])
 
 ;; VSX moves
@@ -685,7 +715,7 @@
     }
 }
   [(set_attr "length" "0,4")
-   (set_attr "type" "vecsimple")])
+   (set_attr "type" "veclogical")])
 
 (define_insn_and_split "*vsx_le_perm_load_<mode>"
   [(set (match_operand:VSX_LE_128 0 "vsx_register_operand" "=<VSa>")
@@ -904,13 +934,27 @@
   [(set (match_operand:VSX_M 0 "vsx_register_operand" "")
 	(match_operand:VSX_M 1 "memory_operand" ""))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "")
+{
+  /* Expand to swaps if needed, prior to swap optimization.  */
+  if (!BYTES_BIG_ENDIAN && !TARGET_P9_VECTOR)
+    {
+      rs6000_emit_le_vsx_move (operands[0], operands[1], <MODE>mode);
+      DONE;
+    }
+})
 
 (define_expand "vsx_store_<mode>"
   [(set (match_operand:VSX_M 0 "memory_operand" "")
 	(match_operand:VSX_M 1 "vsx_register_operand" ""))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "")
+{
+  /* Expand to swaps if needed, prior to swap optimization.  */
+  if (!BYTES_BIG_ENDIAN && !TARGET_P9_VECTOR)
+    {
+      rs6000_emit_le_vsx_move (operands[0], operands[1], <MODE>mode);
+      DONE;
+    }
+})
 
 ;; Explicit load/store expanders for the builtin functions for lxvd2x, etc.,
 ;; when you really want their element-reversing behavior.
@@ -1492,7 +1536,7 @@
 	 (match_operand:VSX_L 3 "vsx_register_operand" "<VSr>,<VSa>")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxsel %x0,%x3,%x2,%x1"
-  [(set_attr "type" "vecperm")])
+  [(set_attr "type" "vecmove")])
 
 (define_insn "*vsx_xxsel<mode>_uns"
   [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?<VSa>")
@@ -1503,7 +1547,7 @@
 	 (match_operand:VSX_L 3 "vsx_register_operand" "<VSr>,<VSa>")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxsel %x0,%x3,%x2,%x1"
-  [(set_attr "type" "vecperm")])
+  [(set_attr "type" "vecmove")])
 
 ;; Copy sign
 (define_insn "vsx_copysign<mode>3"
@@ -1645,7 +1689,7 @@
 
 ;; Same as vsx_xscvspdp, but use SF as the type
 (define_insn "vsx_xscvspdp_scalar2"
-  [(set (match_operand:SF 0 "vsx_register_operand" "=f")
+  [(set (match_operand:SF 0 "vsx_register_operand" "=ww")
 	(unspec:SF [(match_operand:V4SF 1 "vsx_register_operand" "wa")]
 		   UNSPEC_VSX_CVSPDP))]
   "VECTOR_UNIT_VSX_P (V4SFmode)"
@@ -2095,122 +2139,139 @@
   [(set_attr "type" "vecperm")])
 
 ;; Extract a DF/DI element from V2DF/V2DI
-(define_expand "vsx_extract_<mode>"
-  [(set (match_operand:<VS_scalar> 0 "register_operand" "")
-	(vec_select:<VS_scalar> (match_operand:VSX_D 1 "register_operand" "")
-		       (parallel
-			[(match_operand:QI 2 "u5bit_cint_operand" "")])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "")
-
 ;; Optimize cases were we can do a simple or direct move.
 ;; Or see if we can avoid doing the move at all
-(define_insn "*vsx_extract_<mode>_internal1"
-  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,<VS_64reg>,r,r")
+
+;; There are some unresolved problems with reload that show up if an Altivec
+;; register was picked.  Limit the scalar value to FPRs for now.
+
+(define_insn "vsx_extract_<mode>"
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=d,    d,     wr, wr")
+
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "register_operand" "d,<VS_64reg>,<VS_64dm>,<VS_64dm>")
+	 (match_operand:VSX_D 1 "gpc_reg_operand"      "<VSa>, <VSa>, wm, wo")
+
 	 (parallel
-	  [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD,wL")])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_POWERPC64 && TARGET_DIRECT_MOVE"
+	  [(match_operand:QI 2 "const_0_to_1_operand"  "wD,    n,     wD, n")])))]
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
+  int element = INTVAL (operands[2]);
   int op0_regno = REGNO (operands[0]);
   int op1_regno = REGNO (operands[1]);
-
-  if (op0_regno == op1_regno)
-    return "nop";
-
-  if (INT_REGNO_P (op0_regno))
-    return ((INTVAL (operands[2]) == VECTOR_ELEMENT_MFVSRLD_64BIT)
-	    ? "mfvsrdl %0,%x1"
-	    : "mfvsrd %0,%x1");
-
-  if (FP_REGNO_P (op0_regno) && FP_REGNO_P (op1_regno))
-    return "fmr %0,%1";
-
-  return "xxlor %x0,%x1,%x1";
-}
-  [(set_attr "type" "fp,vecsimple,mftgpr,mftgpr")
-   (set_attr "length" "4")])
-
-(define_insn "*vsx_extract_<mode>_internal2"
-  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=d,<VS_64reg>,<VS_64reg>")
-	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "vsx_register_operand" "d,wd,wd")
-	 (parallel [(match_operand:QI 2 "u5bit_cint_operand" "wD,wD,i")])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
-   && (!TARGET_POWERPC64 || !TARGET_DIRECT_MOVE
-       || INTVAL (operands[2]) != VECTOR_ELEMENT_SCALAR_64BIT)"
-{
   int fldDM;
-  gcc_assert (UINTVAL (operands[2]) <= 1);
 
-  if (INTVAL (operands[2]) == VECTOR_ELEMENT_SCALAR_64BIT)
+  gcc_assert (IN_RANGE (element, 0, 1));
+  gcc_assert (VSX_REGNO_P (op1_regno));
+
+  if (element == VECTOR_ELEMENT_SCALAR_64BIT)
     {
-      int op0_regno = REGNO (operands[0]);
-      int op1_regno = REGNO (operands[1]);
-
       if (op0_regno == op1_regno)
-	return "nop";
+	return ASM_COMMENT_START " vec_extract to same register";
 
-      if (FP_REGNO_P (op0_regno) && FP_REGNO_P (op1_regno))
+      else if (INT_REGNO_P (op0_regno) && TARGET_DIRECT_MOVE
+	       && TARGET_POWERPC64)
+	return "mfvsrd %0,%x1";
+
+      else if (FP_REGNO_P (op0_regno) && FP_REGNO_P (op1_regno))
 	return "fmr %0,%1";
 
-      return "xxlor %x0,%x1,%x1";
+      else if (VSX_REGNO_P (op0_regno))
+	return "xxlor %x0,%x1,%x1";
+
+      else
+	gcc_unreachable ();
     }
 
-  fldDM = INTVAL (operands[2]) << 1;
-  if (!BYTES_BIG_ENDIAN)
-    fldDM = 3 - fldDM;
-  operands[3] = GEN_INT (fldDM);
-  return "xxpermdi %x0,%x1,%x1,%3";
-}
-  [(set_attr "type" "fp,vecsimple,vecperm")
-   (set_attr "length" "4")])
+  else if (element == VECTOR_ELEMENT_MFVSRLD_64BIT && INT_REGNO_P (op0_regno)
+	   && TARGET_P9_VECTOR && TARGET_POWERPC64 && TARGET_DIRECT_MOVE)
+    return "mfvsrld %0,%x1";
 
-;; Optimize extracting a single scalar element from memory if the scalar is in
-;; the correct location to use a single load.
-(define_insn "*vsx_extract_<mode>_load"
-  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,wv,wr")
-	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "memory_operand" "m,Z,m")
-	 (parallel [(const_int 0)])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "@
-   lfd%U1%X1 %0,%1
-   lxsd%U1x %x0,%y1
-   ld%U1%X1 %0,%1"
-  [(set_attr "type" "fpload,fpload,load")
-   (set_attr "length" "4")])
+  else if (VSX_REGNO_P (op0_regno))
+    {
+      fldDM = element << 1;
+      if (!BYTES_BIG_ENDIAN)
+	fldDM = 3 - fldDM;
+      operands[3] = GEN_INT (fldDM);
+      return "xxpermdi %x0,%x1,%x1,%3";
+    }
+
+  else
+    gcc_unreachable ();
+}
+  [(set_attr "type" "veclogical,mftgpr,mftgpr,vecperm")])
+
+;; Optimize extracting a single scalar element from memory.
+(define_insn_and_split "*vsx_extract_<P:mode>_<VSX_D:mode>_load"
+  [(set (match_operand:<VS_scalar> 0 "register_operand" "=<VSX_D:VS_64reg>,wr")
+	(vec_select:<VSX_D:VS_scalar>
+	 (match_operand:VSX_D 1 "memory_operand" "m,m")
+	 (parallel [(match_operand:QI 2 "const_0_to_1_operand" "n,n")])))
+   (clobber (match_scratch:P 3 "=&b,&b"))]
+  "VECTOR_MEM_VSX_P (<VSX_D:MODE>mode)"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 4))]
+{
+  operands[4] = rs6000_adjust_vec_address (operands[0], operands[1], operands[2],
+					   operands[3], <VSX_D:VS_scalar>mode);
+}
+  [(set_attr "type" "fpload,load")
+   (set_attr "length" "8")])
 
 ;; Optimize storing a single scalar element that is the right location to
 ;; memory
 (define_insn "*vsx_extract_<mode>_store"
-  [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,Z,?Z")
+  [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,Z,o")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "register_operand" "d,wd,<VSa>")
+	 (match_operand:VSX_D 1 "register_operand" "d,wv,wb")
 	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    stfd%U0%X0 %1,%0
    stxsd%U0x %x1,%y0
-   stxsd%U0x %x1,%y0"
+   stxsd %1,%0"
   [(set_attr "type" "fpstore")
    (set_attr "length" "4")])
 
+;; Variable V2DI/V2DF extract shift
+(define_insn "vsx_vslo_<mode>"
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=v")
+	(unspec:<VS_scalar> [(match_operand:VSX_D 1 "gpc_reg_operand" "v")
+			     (match_operand:V2DI 2 "gpc_reg_operand" "v")]
+			    UNSPEC_VSX_VSLO))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
+  "vslo %0,%1,%2"
+  [(set_attr "type" "vecperm")])
+
+;; Variable V2DI/V2DF extract
+(define_insn_and_split "vsx_extract_<mode>_var"
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=v,<VSa>,r")
+	(unspec:<VS_scalar> [(match_operand:VSX_D 1 "input_operand" "v,m,m")
+			     (match_operand:DI 2 "gpc_reg_operand" "r,r,r")]
+			    UNSPEC_VSX_EXTRACT))
+   (clobber (match_scratch:DI 3 "=r,&b,&b"))
+   (clobber (match_scratch:V2DI 4 "=&v,X,X"))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  rs6000_split_vec_extract_var (operands[0], operands[1], operands[2],
+				operands[3], operands[4]);
+  DONE;
+})
+
 ;; Extract a SF element from V4SF
 (define_insn_and_split "vsx_extract_v4sf"
-  [(set (match_operand:SF 0 "vsx_register_operand" "=f,f")
+  [(set (match_operand:SF 0 "vsx_register_operand" "=ww")
 	(vec_select:SF
-	 (match_operand:V4SF 1 "vsx_register_operand" "wa,wa")
-	 (parallel [(match_operand:QI 2 "u5bit_cint_operand" "O,i")])))
-   (clobber (match_scratch:V4SF 3 "=X,0"))]
+	 (match_operand:V4SF 1 "vsx_register_operand" "wa")
+	 (parallel [(match_operand:QI 2 "u5bit_cint_operand" "n")])))
+   (clobber (match_scratch:V4SF 3 "=0"))]
   "VECTOR_UNIT_VSX_P (V4SFmode)"
-  "@
-   xscvspdp %x0,%x1
-   #"
-  ""
+  "#"
+  "&& 1"
   [(const_int 0)]
-  "
 {
   rtx op0 = operands[0];
   rtx op1 = operands[1];
@@ -2230,9 +2291,45 @@
     }
   emit_insn (gen_vsx_xscvspdp_scalar2 (op0, tmp));
   DONE;
-}"
-  [(set_attr "length" "4,8")
+}
+  [(set_attr "length" "8")
    (set_attr "type" "fp")])
+
+(define_insn_and_split "*vsx_extract_v4sf_<mode>_load"
+  [(set (match_operand:SF 0 "register_operand" "=f,wv,wb,?r")
+	(vec_select:SF
+	 (match_operand:V4SF 1 "memory_operand" "m,Z,m,m")
+	 (parallel [(match_operand:QI 2 "const_0_to_3_operand" "n,n,n,n")])))
+   (clobber (match_scratch:P 3 "=&b,&b,&b,&b"))]
+  "VECTOR_MEM_VSX_P (V4SFmode)"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 4))]
+{
+  operands[4] = rs6000_adjust_vec_address (operands[0], operands[1], operands[2],
+					   operands[3], SFmode);
+}
+  [(set_attr "type" "fpload,fpload,fpload,load")
+   (set_attr "length" "8")])
+
+;; Variable V4SF extract
+(define_insn_and_split "vsx_extract_v4sf_var"
+  [(set (match_operand:SF 0 "gpc_reg_operand" "=ww,ww,?r")
+	(unspec:SF [(match_operand:V4SF 1 "input_operand" "v,m,m")
+		    (match_operand:DI 2 "gpc_reg_operand" "r,r,r")]
+		   UNSPEC_VSX_EXTRACT))
+   (clobber (match_scratch:DI 3 "=r,&b,&b"))
+   (clobber (match_scratch:V2DI 4 "=&v,X,X"))]
+  "VECTOR_MEM_VSX_P (V4SFmode) && TARGET_DIRECT_MOVE_64BIT
+   && TARGET_UPPER_REGS_SF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  rs6000_split_vec_extract_var (operands[0], operands[1], operands[2],
+				operands[3], operands[4]);
+  DONE;
+})
 
 ;; Expand the builtin form of xxpermdi to canonical rtl.
 (define_expand "vsx_xxpermdi_<mode>"
@@ -2327,6 +2424,181 @@
     DONE;
   else
     FAIL;
+})
+
+;; Extraction of a single element in a small integer vector.  None of the small
+;; types are currently allowed in a vector register, so we extract to a DImode
+;; and either do a direct move or store.
+(define_expand  "vsx_extract_<mode>"
+  [(parallel [(set (match_operand:<VS_scalar> 0 "nonimmediate_operand")
+		   (vec_select:<VS_scalar>
+		    (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand")
+		    (parallel [(match_operand:QI 2 "const_int_operand")])))
+	      (clobber (match_dup 3))])]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
+{
+  operands[3] = gen_rtx_SCRATCH ((TARGET_VEXTRACTUB) ? DImode : <MODE>mode);
+})
+
+;; Under ISA 3.0, we can use the byte/half-word/word integer stores if we are
+;; extracting a vector element and storing it to memory, rather than using
+;; direct move to a GPR and a GPR store.
+(define_insn_and_split  "*vsx_extract_<mode>_p9"
+  [(set (match_operand:<VS_scalar> 0 "nonimmediate_operand" "=r,Z")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "<VSX_EX>,<VSX_EX>")
+	 (parallel [(match_operand:QI 2 "<VSX_EXTRACT_PREDICATE>" "n,n")])))
+   (clobber (match_scratch:DI 3 "=<VSX_EX>,<VSX_EX>"))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_VEXTRACTUB"
+  "#"
+  "&& (reload_completed || MEM_P (operands[0]))"
+  [(const_int 0)]
+{
+  rtx dest = operands[0];
+  rtx src = operands[1];
+  rtx element = operands[2];
+  rtx di_tmp = operands[3];
+
+  if (GET_CODE (di_tmp) == SCRATCH)
+    di_tmp = gen_reg_rtx (DImode);
+
+  emit_insn (gen_vsx_extract_<mode>_di (di_tmp, src, element));
+
+  if (REG_P (dest))
+    emit_move_insn (gen_rtx_REG (DImode, REGNO (dest)), di_tmp);
+  else if (SUBREG_P (dest))
+    emit_move_insn (gen_rtx_REG (DImode, subreg_regno (dest)), di_tmp);
+  else if (MEM_P (operands[0]))
+    {
+      if (can_create_pseudo_p ())
+	dest = rs6000_address_for_fpconvert (dest);
+
+      if (<MODE>mode == V16QImode)
+	emit_insn (gen_p9_stxsibx (dest, di_tmp));
+      else if (<MODE>mode == V8HImode)
+	emit_insn (gen_p9_stxsihx (dest, di_tmp));
+      else if (<MODE>mode == V4SImode)
+	emit_insn (gen_stfiwx (dest, di_tmp));
+      else
+	gcc_unreachable ();
+    }
+  else
+    gcc_unreachable ();
+
+  DONE;
+}
+  [(set_attr "type" "vecsimple,fpstore")])
+
+(define_insn  "vsx_extract_<mode>_di"
+  [(set (match_operand:DI 0 "gpc_reg_operand" "=<VSX_EX>")
+	(zero_extend:DI
+	 (vec_select:<VS_scalar>
+	  (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "<VSX_EX>")
+	  (parallel [(match_operand:QI 2 "<VSX_EXTRACT_PREDICATE>" "n")]))))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_VEXTRACTUB"
+{
+  int element = INTVAL (operands[2]);
+  int unit_size = GET_MODE_UNIT_SIZE (<MODE>mode);
+  int offset = ((VECTOR_ELT_ORDER_BIG)
+		? unit_size * element
+		: unit_size * (GET_MODE_NUNITS (<MODE>mode) - 1 - element));
+
+  operands[2] = GEN_INT (offset);
+  if (unit_size == 4)
+    return "xxextractuw %x0,%x1,%2";
+  else
+    return "vextractu<wd> %0,%1,%2";
+}
+  [(set_attr "type" "vecsimple")])
+
+(define_insn_and_split  "*vsx_extract_<mode>_p8"
+  [(set (match_operand:<VS_scalar> 0 "nonimmediate_operand" "=r")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "v")
+	 (parallel [(match_operand:QI 2 "<VSX_EXTRACT_PREDICATE>" "n")])))
+   (clobber (match_scratch:VSX_EXTRACT_I 3 "=v"))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  rtx dest = operands[0];
+  rtx src = operands[1];
+  rtx element = operands[2];
+  rtx vec_tmp = operands[3];
+  int value;
+
+  if (!VECTOR_ELT_ORDER_BIG)
+    element = GEN_INT (GET_MODE_NUNITS (<MODE>mode) - 1 - INTVAL (element));
+
+  /* If the value is in the correct position, we can avoid doing the VSPLT<x>
+     instruction.  */
+  value = INTVAL (element);
+  if (<MODE>mode == V16QImode)
+    {
+      if (value != 7)
+	emit_insn (gen_altivec_vspltb_direct (vec_tmp, src, element));
+      else
+	vec_tmp = src;
+    }
+  else if (<MODE>mode == V8HImode)
+    {
+      if (value != 3)
+	emit_insn (gen_altivec_vsplth_direct (vec_tmp, src, element));
+      else
+	vec_tmp = src;
+    }
+  else if (<MODE>mode == V4SImode)
+    {
+      if (value != 1)
+	emit_insn (gen_altivec_vspltw_direct (vec_tmp, src, element));
+      else
+	vec_tmp = src;
+    }
+  else
+    gcc_unreachable ();
+
+  emit_move_insn (gen_rtx_REG (DImode, REGNO (dest)),
+		  gen_rtx_REG (DImode, REGNO (vec_tmp)));
+  DONE;
+}
+  [(set_attr "type" "mftgpr")])
+
+;; Optimize extracting a single scalar element from memory.
+(define_insn_and_split "*vsx_extract_<mode>_load"
+  [(set (match_operand:<VS_scalar> 0 "register_operand" "=r")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_EXTRACT_I 1 "memory_operand" "m")
+	 (parallel [(match_operand:QI 2 "<VSX_EXTRACT_PREDICATE>" "n")])))
+   (clobber (match_scratch:DI 3 "=&b"))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 4))]
+{
+  operands[4] = rs6000_adjust_vec_address (operands[0], operands[1], operands[2],
+					   operands[3], <VS_scalar>mode);
+}
+  [(set_attr "type" "load")
+   (set_attr "length" "8")])
+
+;; Variable V16QI/V8HI/V4SI extract
+(define_insn_and_split "vsx_extract_<mode>_var"
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=r,r")
+	(unspec:<VS_scalar>
+	 [(match_operand:VSX_EXTRACT_I 1 "input_operand" "v,m")
+	  (match_operand:DI 2 "gpc_reg_operand" "r,r")]
+	 UNSPEC_VSX_EXTRACT))
+   (clobber (match_scratch:DI 3 "=r,&b"))
+   (clobber (match_scratch:V2DI 4 "=&v,X"))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  rs6000_split_vec_extract_var (operands[0], operands[1], operands[2],
+				operands[3], operands[4]);
+  DONE;
 })
 
 ;; Expanders for builtins
@@ -2432,9 +2704,8 @@
   [(set (match_dup 0)
 	(unspec:V4SF [(match_dup 1)] UNSPEC_VSX_CVDPSPN))
    (set (match_dup 0)
-	(vec_duplicate:V4SF
-	 (vec_select:SF (match_dup 0)
-			(parallel [(const_int 0)]))))]
+	(unspec:V4SF [(match_dup 0)
+		      (const_int 0)] UNSPEC_VSX_XXSPLTW))]
   ""
   [(set_attr "type" "vecload,vecperm,mftgpr")
    (set_attr "length" "4,8,4")])
@@ -2711,16 +2982,16 @@
 	 UNSPEC_VSX_SIGN_EXTEND))]
   "TARGET_P9_VECTOR"
   "vextsb2<wd> %0,%1"
-  [(set_attr "type" "vecsimple")])
+  [(set_attr "type" "vecexts")])
 
-(define_insn "*vsx_sign_extend_hi_<mode>"
+(define_insn "vsx_sign_extend_hi_<mode>"
   [(set (match_operand:VSINT_84 0 "vsx_register_operand" "=v")
 	(unspec:VSINT_84
 	 [(match_operand:V8HI 1 "vsx_register_operand" "v")]
 	 UNSPEC_VSX_SIGN_EXTEND))]
   "TARGET_P9_VECTOR"
   "vextsh2<wd> %0,%1"
-  [(set_attr "type" "vecsimple")])
+  [(set_attr "type" "vecexts")])
 
 (define_insn "*vsx_sign_extend_si_v2di"
   [(set (match_operand:V2DI 0 "vsx_register_operand" "=v")
@@ -2728,4 +2999,178 @@
 		     UNSPEC_VSX_SIGN_EXTEND))]
   "TARGET_P9_VECTOR"
   "vextsw2d %0,%1"
+  [(set_attr "type" "vecexts")])
+
+
+;; ISA 3.0 memory operations
+(define_insn "p9_lxsi<wd>zx"
+  [(set (match_operand:DI 0 "vsx_register_operand" "=wi")
+	(unspec:DI [(zero_extend:DI
+		     (match_operand:QHI 1 "indexed_or_indirect_operand" "Z"))]
+		   UNSPEC_P9_MEMORY))]
+  "TARGET_P9_VECTOR"
+  "lxsi<wd>zx %x0,%y1"
+  [(set_attr "type" "fpload")])
+
+(define_insn "p9_stxsi<wd>x"
+  [(set (match_operand:QHI 0 "reg_or_indexed_operand" "=r,Z")
+	(unspec:QHI [(match_operand:DI 1 "vsx_register_operand" "wi,wi")]
+		    UNSPEC_P9_MEMORY))]
+  "TARGET_P9_VECTOR"
+  "@
+   mfvsrd %0,%x1
+   stxsi<wd>x %x1,%y0"
+  [(set_attr "type" "mffgpr,fpstore")])
+
+;; ISA 3.0 Binary Floating-Point Support
+
+;; VSX Scalar Extract Exponent Double-Precision
+(define_insn "xsxexpdp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DF 1 "vsx_register_operand" "wa")]
+	 UNSPEC_VSX_SXEXPDP))]
+  "TARGET_P9_VECTOR && TARGET_64BIT"
+  "xsxexpdp %0,%x1"
+  [(set_attr "type" "integer")])
+
+;; VSX Scalar Extract Significand Double-Precision
+(define_insn "xsxsigdp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DF 1 "vsx_register_operand" "wa")]
+	 UNSPEC_VSX_SXSIGDP))]
+  "TARGET_P9_VECTOR && TARGET_64BIT"
+  "xsxsigdp %0,%x1"
+  [(set_attr "type" "integer")])
+
+;; VSX Scalar Insert Exponent Double-Precision
+(define_insn "xsiexpdp"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=wa")
+	(unspec:DF [(match_operand:DI 1 "register_operand" "r")
+		    (match_operand:DI 2 "register_operand" "r")]
+	 UNSPEC_VSX_SIEXPDP))]
+  "TARGET_P9_VECTOR && TARGET_64BIT"
+  "xsiexpdp %x0,%1,%2"
+  [(set_attr "type" "fpsimple")])
+
+;; VSX Scalar Compare Exponents Double-Precision
+(define_expand "xscmpexpdp_<code>"
+  [(set (match_dup 3)
+	(compare:CCFP
+	 (unspec:DF
+	  [(match_operand:DF 1 "vsx_register_operand" "wa")
+	   (match_operand:DF 2 "vsx_register_operand" "wa")]
+	  UNSPEC_VSX_SCMPEXPDP)
+	 (const_int 0)))
+   (set (match_operand:SI 0 "register_operand" "=r")
+	(CMP_TEST:SI (match_dup 3)
+		     (const_int 0)))]
+  "TARGET_P9_VECTOR"
+{
+  operands[3] = gen_reg_rtx (CCFPmode);
+})
+
+(define_insn "*xscmpexpdp"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	(compare:CCFP
+	 (unspec:DF [(match_operand:DF 1 "vsx_register_operand" "wa")
+		     (match_operand:DF 2 "vsx_register_operand" "wa")]
+	  UNSPEC_VSX_SCMPEXPDP)
+	 (match_operand:SI 3 "zero_constant" "j")))]
+  "TARGET_P9_VECTOR"
+  "xscmpexpdp %0,%x1,%x2"
+  [(set_attr "type" "fpcompare")])
+
+;; VSX Scalar Test Data Class Double- and Single-Precision
+;;  (The lt bit is set if operand 1 is negative.  The eq bit is set
+;;   if any of the conditions tested by operand 2 are satisfied.
+;;   The gt and unordered bits are cleared to zero.)
+(define_expand "xststdc<Fvsx>"
+  [(set (match_dup 3)
+	(compare:CCFP
+	 (unspec:SFDF
+	  [(match_operand:SFDF 1 "vsx_register_operand" "wa")
+	   (match_operand:SI 2 "u7bit_cint_operand" "n")]
+	  UNSPEC_VSX_STSTDC)
+	 (match_dup 4)))
+   (set (match_operand:SI 0 "register_operand" "=r")
+	(eq:SI (match_dup 3)
+	       (const_int 0)))]
+  "TARGET_P9_VECTOR"
+{
+  operands[3] = gen_reg_rtx (CCFPmode);
+  operands[4] = CONST0_RTX (SImode);
+})
+
+;; The VSX Scalar Test Data Class Double- and Single-Precision
+;; instruction may also be used to test for negative value.
+(define_expand "xststdcneg<Fvsx>"
+  [(set (match_dup 2)
+	(compare:CCFP
+	 (unspec:SFDF
+	  [(match_operand:SFDF 1 "vsx_register_operand" "wa")
+	   (const_int 0)]
+	  UNSPEC_VSX_STSTDC)
+	 (match_dup 3)))
+   (set (match_operand:SI 0 "register_operand" "=r")
+	(lt:SI (match_dup 2)
+	       (const_int 0)))]
+  "TARGET_P9_VECTOR"
+{
+  operands[2] = gen_reg_rtx (CCFPmode);
+  operands[3] = CONST0_RTX (SImode);
+})
+
+(define_insn "*xststdc<Fvsx>"
+  [(set (match_operand:CCFP 0 "" "=y")
+	(compare:CCFP
+	 (unspec:SFDF [(match_operand:SFDF 1 "vsx_register_operand" "wa")
+		       (match_operand:SI 2 "u7bit_cint_operand" "n")]
+	  UNSPEC_VSX_STSTDC)
+	 (match_operand:SI 3 "zero_constant" "j")))]
+  "TARGET_P9_VECTOR"
+  "xststdc<Fvsx> %0,%x1,%2"
+  [(set_attr "type" "fpcompare")])
+
+;; VSX Vector Extract Exponent Double and Single Precision
+(define_insn "xvxexp<VSs>"
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=wa")
+	(unspec:VSX_F
+	 [(match_operand:VSX_F 1 "vsx_register_operand" "wa")]
+	 UNSPEC_VSX_VXEXP))]
+  "TARGET_P9_VECTOR"
+  "xvxexp<VSs> %x0,%x1"
+  [(set_attr "type" "vecsimple")])
+
+;; VSX Vector Extract Significand Double and Single Precision
+(define_insn "xvxsig<VSs>"
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=wa")
+	(unspec:VSX_F
+	 [(match_operand:VSX_F 1 "vsx_register_operand" "wa")]
+	 UNSPEC_VSX_VXSIG))]
+  "TARGET_P9_VECTOR"
+  "xvxsig<VSs> %x0,%x1"
+  [(set_attr "type" "vecsimple")])
+
+;; VSX Vector Insert Exponent Double and Single Precision
+(define_insn "xviexp<VSs>"
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=wa")
+	(unspec:VSX_F
+	 [(match_operand:VSX_F 1 "vsx_register_operand" "wa")
+	  (match_operand:VSX_F 2 "vsx_register_operand" "wa")]
+	 UNSPEC_VSX_VIEXP))]
+  "TARGET_P9_VECTOR"
+  "xviexp<VSs> %x0,%x1,%x2"
+  [(set_attr "type" "vecsimple")])
+
+;; VSX Vector Test Data Class Double and Single Precision
+;; The corresponding elements of the result vector are all ones
+;; if any of the conditions tested by operand 3 are satisfied.
+(define_insn "xvtstdc<VSs>"
+  [(set (match_operand:<VSI> 0 "vsx_register_operand" "=wa")
+	(unspec:<VSI>
+	 [(match_operand:VSX_F 1 "vsx_register_operand" "wa")
+	  (match_operand:SI 2 "u7bit_cint_operand" "n")]
+	 UNSPEC_VSX_VTSTDC))]
+  "TARGET_P9_VECTOR"
+  "xvtstdc<VSs> %x0,%x1,%2"
   [(set_attr "type" "vecsimple")])

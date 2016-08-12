@@ -402,8 +402,30 @@
 #define vec_vprtybq __builtin_vec_vprtybq
 #endif
 
+#define vec_absd __builtin_vec_vadu
+#define vec_absdb __builtin_vec_vadub
+#define vec_absdh __builtin_vec_vaduh
+#define vec_absdw __builtin_vec_vaduw
+
 #define vec_slv __builtin_vec_vslv
 #define vec_srv __builtin_vec_vsrv
+
+#define vec_extract_exp __builtin_vec_extract_exp
+#define vec_extract_sig __builtin_vec_extract_sig
+#define vec_insert_exp __builtin_vec_insert_exp
+#define vec_test_data_class __builtin_vec_test_data_class
+
+#define scalar_extract_exp __builtin_vec_scalar_extract_exp
+#define scalar_extract_sig __builtin_vec_scalar_extract_sig
+#define scalar_insert_exp __builtin_vec_scalar_insert_exp
+#define scalar_test_data_class __builtin_vec_scalar_test_data_class
+#define scalar_test_neg __builtin_vec_scalar_test_neg
+
+#define scalar_cmp_exp_gt __builtin_vec_scalar_cmp_exp_gt
+#define scalar_cmp_exp_lt __builtin_vec_scalar_cmp_exp_lt
+#define scalar_cmp_exp_eq __builtin_vec_scalar_cmp_exp_eq
+#define scalar_cmp_exp_unordered __builtin_vec_scalar_cmp_exp_unordered
+
 #endif
 
 /* Predicates.
