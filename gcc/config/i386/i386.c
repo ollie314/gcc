@@ -4958,10 +4958,10 @@ ix86_option_override_internal (bool main_args_p,
 	| PTA_SSE2 | PTA_NO_SAHF | PTA_FXSR},
       {"amdfam10", PROCESSOR_AMDFAM10, CPU_AMDFAM10,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_SSE2
-	| PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_FXSR},
+	| PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_FXSR | PTA_PRFCHW},
       {"barcelona", PROCESSOR_AMDFAM10, CPU_AMDFAM10,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_SSE2
-	| PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_FXSR},
+	| PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_FXSR | PTA_PRFCHW},
       {"bdver1", PROCESSOR_BDVER1, CPU_BDVER1,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_SSSE3 | PTA_SSE4_1
@@ -43284,31 +43284,6 @@ ix86_vector_mode_supported_p (machine_mode mode)
   return false;
 }
 
-/* Implement target hook libgcc_floating_mode_supported_p.  */
-static bool
-ix86_libgcc_floating_mode_supported_p (machine_mode mode)
-{
-  switch (mode)
-    {
-    case SFmode:
-    case DFmode:
-    case XFmode:
-      return true;
-
-    case TFmode:
-#ifdef IX86_NO_LIBGCC_TFMODE
-      return false;
-#elif defined IX86_MAYBE_NO_LIBGCC_TFMODE
-      return TARGET_LONG_DOUBLE_128;
-#else
-      return true;
-#endif
-
-    default:
-      return false;
-    }
-}
-
 /* Target hook for c_mode_for_suffix.  */
 static machine_mode
 ix86_c_mode_for_suffix (char suffix)
@@ -50567,10 +50542,6 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P ix86_vector_mode_supported_p
-
-#undef TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P
-#define TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P \
-  ix86_libgcc_floating_mode_supported_p
 
 #undef TARGET_C_MODE_FOR_SUFFIX
 #define TARGET_C_MODE_FOR_SUFFIX ix86_c_mode_for_suffix
