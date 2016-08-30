@@ -77,7 +77,19 @@ extern location_t input_location;
 #define from_macro_expansion_at(LOC) \
   ((linemap_location_from_macro_expansion_p (line_table, LOC)))
 
-extern location_t get_pure_location (location_t loc);
+static inline location_t
+get_pure_location (location_t loc)
+{
+  return get_pure_location (line_table, loc);
+}
+
+/* Get the start of any range encoded within location LOC.  */
+
+static inline location_t
+get_start (location_t loc)
+{
+  return get_range_from_loc (line_table, loc).m_start;
+}
 
 /* Get the endpoint of any range encoded within location LOC.  */
 

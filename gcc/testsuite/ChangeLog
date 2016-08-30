@@ -1,3 +1,61 @@
+2016-08-29  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/pr77372.f90: Moved to ...
+	* gfortran.dg/ieee/pr77372.f90: here.
+
+2016-08-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-init-4.c: New runtime tests for various
+	vector short/char initializations.
+	* gcc.target/powerpc/vec-init-5.c: Likewise.
+	* gcc.target/powerpc/vec-init-6.c: New compile time test for
+	vector initialization optimizations.
+	* gcc.target/powerpc/vec-init-7.c: Likewise.
+	* gcc.target/powerpc/vec-init-8.c: New runtime tests for various
+	vector float/double initializations.
+	* gcc.target/powerpc/vec-init-9.c: Likewise.
+
+2016-08-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77403
+	* gcc.target/i386/pr77403.c: New test.
+
+2016-08-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/77292
+	* c-c++-common/Wlogical-not-parentheses-1.c: New test.
+
+2016-08-29  Tom de Vries  <tom@codesourcery.com>
+
+	PR c/77398
+	* g++.dg/ext/va-arg1.C: Add error check for illegal first argument.
+
+2016-08-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/ipa/iinline-attr.c: XFAIL on Visium.
+
+2016-08-29  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_structure_13.f90: New testcase.
+
+2016-08-29  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/77261
+	* gfortran.dg/random_3.f90: Run testcase only when real(10) is
+	available.
+
+2016-08-28  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/70955
+	* gcc.dg/pr70955.c: New test.
+	* gcc.dg/lto/pr70955_0.c: Same.
+	* gcc.dg/lto/pr70955_1.c: Same.
+
+2016-08-27  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/71077
+	* gcc.target/i386/pr71077.c: New test.
+
 2016-08-27  Steven G. Kargl <kargl@gcc.gnu.org>
 
 	PR fortran/77380
@@ -306,10 +364,10 @@
 
 2016-08-19  Janne Blomqvist  <jb@gcc.gnu.org>
 
-        * gfortran.dg/random_4.f90: Initialize seed before using, handle
-        the last special seed value.
-        * gfortran.dg/random_7.f90: Use size for last array member instead
-        of hardcoded value.
+	* gfortran.dg/random_4.f90: Initialize seed before using, handle
+	the last special seed value.
+	* gfortran.dg/random_7.f90: Use size for last array member instead
+	of hardcoded value.
 
 2016-08-19  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
 
