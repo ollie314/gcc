@@ -1,3 +1,99 @@
+2016-09-14  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/77539
+	* g++.dg/cpp1y/pr77539.C: New.
+
+2016-09-14  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* g++.dg/cpp0x/lambda/lambda-mangle.C: Move dg-do directive before
+	dg-require.
+	* g++.dg/ext/builtin_alloca.C: Likewise.
+	* g++.dg/template/spec35.C: Likewise.
+	* gcc.dg/builtins-68.c: Likewise.
+	* gcc.misc-tests/gcov-13.c: Likewise.
+	* gcc.misc-tests/gcov-14.c: Likewise.
+
+2016-09-13  Jim MacArthur  <jim.macarthur@codethink.co.uk>
+
+	* gfortran.dg/dec_structure_14.f90: New testcase.
+
+2016-09-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/68260
+	* c-c++-common/tsan/pr68260.c: New test.
+
+2016-09-13  Joe Seymour  <joe.s@somniumtech.com>
+
+	PR target/70713
+	* gcc.target/msp430/function-attributes-1.c: New test.
+	* gcc.target/msp430/function-attributes-2.c: New test.
+	* gcc.target/msp430/function-attributes-3.c: New test.
+
+2016-09-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/cpp0x/gen-attrs-61.C: New test.
+	* g++.dg/cpp1z/gen-attrs1.C: New test.
+
+	PR tree-optimization/77454
+	* gcc.dg/pr77454.c: New test.
+
+	PR c++/77553
+	* g++.dg/cpp1y/constexpr-77553.C: New test.
+
+2016-09-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic_plugin_test_show_locus.c
+	(test_show_locus): Replace rich_location::add_fixit_insert calls
+	with add_fixit_insert_before and add_fixit_insert_after.
+
+2016-09-13  Jason Merrill  <jason@redhat.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	PR c++/77427
+	* g++.dg/pr77427.C: New test.
+
+2016-09-13  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/gcov/gcov-threads-1.C: Use profile_update_atomic
+	effective target.
+	* gcc.dg/tree-prof/val-profiler-threads-1.c: Likewise.
+	* lib/target-supports.exp: Define the new target.
+
+2016-09-12  Andrew Pinski  <apinski@cavium.com>
+
+	* gcc.target/aarch64/thunderxloadpair.c: New testcase.
+	* gcc.target/aarch64/thunderxnoloadpair.c: New testcase.
+
+2016-09-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/compat/scalar-by-value-4_x.c: Also test passing of
+	variable arguments.
+	* gcc.dg/compat/scalar-by-value-4_y.c (testva##NAME): New.
+	* gcc.dg/compat/scalar-by-value-4_main.c: Update description comment.
+	* gcc.dg/compat/scalar-return-4_x.c: Also test returning of
+	variable argument.
+	* gcc.dg/compat/scalar-return-4_y.c (testva##NAME): New.
+	* gcc.dg/compat/scalar-return-4_main.c: Update description comment.
+
+2016-09-12  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77496
+	* c-c++-common/warn-ommitted-condop.c: Add more test cases.
+	* g++.dg/ext/pr77496.C: New test.
+	* g++.dg/warn/pr77496.C: New test.
+
+2016-09-12  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/72858
+	* gcc.dg/format/diagnostic-ranges.c: Update expected suggestions
+	to preserve conversion chars, and to preserve prefix information.
+	* gcc.dg/format/pr72858.c: New test case.
+
+2016-09-11  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/pr77507.f90: Move to ...
+	* gfortran.dg/ieee/pr77507.f90: here.
+
 2016-08-09  Jan Hubicka  <hubicka@ucw.cz>
 
 	PR ipa/61159
@@ -30,24 +126,12 @@
 	PR rtl-optimization/77289
 	* gcc.target/powerpc/pr77289.c: New test.
 
-2016-09-09  Steven G. Kargl  <kargl@gcc.gnu.org>
-
-	PR fortran/77420
-	* module.c (load_equiv): If the current namespace has a list of
-	equivalence statements, initialize duplicate to false and then
-	look for duplicates; otherwise, initialize it to true.
-
 2016-09-09  Martin Sebor  <msebor@redhat.com>
 
 	PR c/77520
 	PR c/77521
 	* gcc.dg/pr77520.c: New test.
 	* gcc.dg/pr77521.c: New test.
-
-2016-09-09  Steven G. Kargl  <kargl@gcc.gnu.org>
-
-	PR fortran/77420
-	* gfortran.dg/pr77420.f90: New test.
 
 2016-09-09  Steven G. Kargl  <kargl@gcc.gnu.org>
 
