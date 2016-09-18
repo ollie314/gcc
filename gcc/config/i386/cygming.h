@@ -109,8 +109,9 @@ along with GCC; see the file COPYING3.  If not see
       case 4:							\
 	fputs ("\t.secrel32\t", FILE);				\
 	assemble_name (FILE, LABEL);				\
-	if (offset != 0)					\
-	  fprintf (FILE, "+" HOST_WIDE_INT_PRINT_DEC, offset)	\
+	if ((OFFSET) != 0)					\
+	  fprintf (FILE, "+" HOST_WIDE_INT_PRINT_DEC,		\
+		   (HOST_WIDE_INT) (OFFSET))			\
 	break;							\
       case 8:							\
 	/* This is a hack.  There is no 64-bit section relative	\
@@ -120,8 +121,9 @@ along with GCC; see the file COPYING3.  If not see
 	   Fake the 64-bit offset by zero-extending it.  */	\
 	fputs ("\t.secrel32\t", FILE);				\
 	assemble_name (FILE, LABEL);				\
-	if (offset != 0)					\
-	  fprintf (FILE, "+" HOST_WIDE_INT_PRINT_DEC, offset)	\
+	if ((OFFSET) != 0)					\
+	  fprintf (FILE, "+" HOST_WIDE_INT_PRINT_DEC,		\
+		   (HOST_WIDE_INT) (OFFSET))			\
 	fputs ("\n\t.long\t0", FILE);				\
 	break;							\
       default:							\

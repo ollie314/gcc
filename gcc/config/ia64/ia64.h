@@ -1586,8 +1586,9 @@ do {									\
     fputs (integer_asm_op (SIZE, FALSE), FILE);			\
     fputs ("@secrel(", FILE);					\
     assemble_name (FILE, LABEL);				\
-    if (offset != 0)						\
-      fprintf (FILE, "+" HOST_WIDE_INT_PRINT_DEC, OFFSET);	\
+    if ((OFFSET) != 0)						\
+      fprintf (FILE, "+" HOST_WIDE_INT_PRINT_DEC,		\
+	       (HOST_WIDE_INT) (OFFSET));			\
     fputc (')', FILE);						\
   } while (0)
 

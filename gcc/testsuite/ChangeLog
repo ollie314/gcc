@@ -1,3 +1,53 @@
+2016-09-17  Louis Krupp  <louis.krupp@gmail.com>
+
+	PR fortran/68078
+	* gfortran.dg/pr68078.f90: New test.
+	* gfortran.dg/set_vm_limit.c: New, called by pr68078.
+
+2016-09-16  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/77613
+	* gcc.target/powerpc/swaps-p8-25.c: New.
+
+2016-09-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77482
+	* g++.dg/cpp0x/constexpr-77482.C: New test.
+
+	PR c++/77379
+	* g++.dg/abi/abi-tag23.C: Adjust scan-assembler regex for differing
+	thunk offsets.
+	* g++.dg/abi/abi-tag23a.C: Likewise.
+
+	PR c++/77338
+	* g++.dg/cpp0x/decltype-77338.C: New test.
+
+	PR c++/77375
+	* g++.dg/cpp0x/mutable1.C: New test.
+
+2016-09-16  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77612
+	* gfortran.dg/pr77612.f90: New test.
+
+2016-09-16  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/torture/pr70421.c: Require int32plus.
+
+2016-09-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/77475
+	* gcc.target/i386/pr65990.c: Adjust dg-error regexp.
+
+	PR target/77526
+	* gcc.target/i386/pr77526.c: New test.
+
+2016-09-16  Jakub Jelinek  <jakub@redhat.com>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/77594
+	* gcc.target/i386/pr77594.c: New test.
+
 2016-09-15  Louis Krupp  <louis.krupp@zoho.com>
 
 	PR fortran/69963
