@@ -1,3 +1,92 @@
+2016-09-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77646
+	* tree-ssa-sccvn.c (visit_reference_op_call): Always value-number
+	a VDEF.
+
+2016-09-20  Tamar Christina  <tamar.christina@arm.com>
+
+	* config/aarch64/arm_neon.h: Add gnu_inline and artificial
+	attributes to all inlined functions and make them extern.
+
+2016-09-20  Richard Biener  <rguenther@suse.de>
+
+	* debug.h (gcc_debug_hooks): Add filename parameter to early_finish
+	hook.
+	* debug.c (do_nothing_debug_hooks): Adjust.
+	* dbxout.c (dbx_debug_hooks): Likewise.
+	* sdbout.c (sdb_debug_hooks): Likewise.
+	* dwarf2out.c (dwarf2_lineno_debug_hooks): Likewise.
+	(dwarf2out_finish): Move producer, filename and
+	path annotation ...
+	(dwarf2out_early_finish): ... here.  Remove in_lto_p special-casing.
+	* cgraphunit.c (symbol_table::finalize_compilation_unit): Adjust.
+
+2016-09-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77434
+	* doc/invoke.texi: Document -Wint-in-bool-context.
+
+	PR middle-end/77421
+	* dwarf2out.c (output_loc_operands): Fix an assertion.
+
+2016-09-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* ginclude/float.h [__STDC_WANT_IEC_60559_BFP_EXT__]
+	(CR_DECIMAL_DIG): New macro.
+
+2016-09-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* ginclude/stddef.h (max_align_t) [__i386__]: Add __float128
+	element.
+
+2016-09-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/77416
+	* lra-remat.c (operand_to_remat): Process hard coded insn
+	registers.
+
+2016-09-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* simplify-rtx.c (simplify_relational_operation_1): Add transformation
+	(GTU (PLUS a C) (C - 1)) --> (LTU a -C).
+
+2016-09-19  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* target.def (lra_p): Wordsmithing.
+	* doc/tm.texi: Regenerate.
+
+2016-09-19  Jakub Jelinek  <jakub@redhat.com>
+	    Jan Hubicka  <jh@suse.cz>
+
+	PR target/77587
+	* cgraph.c (cgraph_node::rtl_info): Pass &avail to
+	ultimate_alias_target call, return NULL if avail < AVAIL_AVAILABLE.
+	Call ultimate_alias_target just once, not up to 4 times.
+
+2016-09-19  Richard Biener  <rguenther@suse.de>
+
+	* dwarf2out.c (early_dwarf_finished): New global.
+	(set_early_dwarf::set_early_dwarf): Assert early_dwarf_finished
+	is false.
+	(dwarf2out_early_finish): Set early_dwarf_finished at the end,
+	if called from LTO exit early.
+	(dwarf2out_late_global_decl): When being during the early
+	debug phase do not add locations but only const value attributes.
+	Adjust the way we generate early DIEs for LTO.
+
+2016-09-19  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77605
+	* tree-data-ref.c (analyze_subscript_affine_affine): Use the
+	proper niter to bound the loops.
+
+2016-09-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77514
+	* tree-ssa-pre.c (create_expression_by_pieces): Optimize
+	search for folded stmt.
+
 2016-09-17  Jan Hubicka  <hubicka@ucw.cz>
 
 	* passes.def (pass_early_thread_jumps): Schedule after forwprop.
