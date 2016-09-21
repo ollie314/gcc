@@ -1,3 +1,135 @@
+2016-09-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.c-torture/unsorted/dump-noaddr.x: Remove debug statements.
+
+2016-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77651
+	* g++.dg/cpp1z/aligned-new6.C: New test.
+
+2016-09-21  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/arm/fp16-aapcs-3.c: New.
+	* gcc.target/arm/fp16-aapcs-4.c: New.
+	* gcc.target/arm/aapcs/aapcs/vfp22.c: New.
+	* gcc.target/arm/aapcs/aapcs/vfp23.c: New.
+	* gcc.target/arm/aapcs/aapcs/vfp24.c: New.
+	* gcc.target/arm/aapcs/aapcs/vfp25.c: New.
+
+2016-09-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR tree-optimization/77550
+	* g++.dg/pr77550.C: New test.
+
+2016-09-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/77326
+	* gcc.target/avr/torture/pr77326.c: New test.
+
+2016-09-21  Louis Krupp  <louis.krupp@zoho.com>
+
+	* gfortran.dg/pr68078.f90: Run on x86_64_*_linux* only.
+
+2016-09-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77648
+	* gcc.dg/torture/pr77648-1.c: New testcase.
+	* gcc.dg/torture/pr77648-2.c: Likewise.
+
+2016-09-21  Richard Biener  <rguenther@suse.de>
+	Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/77621
+	* gcc.dg/pr77621.c: New testcase.
+
+2016-09-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/77657
+	* gfortran.dg/dtio_12.f90: New test.
+
+2016-09-21  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/tree-ssa/pr64130.c: Use __UINT32_TYPE__ instead of int.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR tree-optimization/72835
+	* gcc.dg/tree-ssa/pr72835.c: New test.
+
+2016-09-20  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/49905
+	* gcc.dg/builtin-stringop-chk-1.c: Adjust.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-2.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-3.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-4.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-2.c: New test.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* gcc.dg/guality/pr54519-1.c: Add -fno-ipa-vrp. Else constant
+	arguments/compare will be optimized away.
+	* gcc.dg/torture/ftrapv-1.c: Likewise.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* g++.dg/ipa/pure-const-3.C: Add -fno-ipa-vrp. Else constant arguments
+	will be optimized away.
+	* gcc.dg/ipa/vrp1.c: New test.
+	* gcc.dg/ipa/vrp2.c: New test.
+	* gcc.dg/ipa/vrp3.c: New test.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* g++.dg/tree-ssa/pr31146-2.C: Run with -fno-tree-evrp as evrp also
+	does the same transformation.
+	* g++.dg/warn/pr33738.C: XFAIL as optimization now happens in ccp.
+	* gcc.dg/tree-ssa/evrp1.c: New test.
+	* gcc.dg/tree-ssa/evrp2.c: New test.
+	* gcc.dg/tree-ssa/evrp3.c: New test.
+	* gcc.dg/tree-ssa/pr20657.c: Check for the pattern in evrp dump.
+	* gcc.dg/tree-ssa/pr22117.c: Likewise.
+	* gcc.dg/tree-ssa/pr61839_2.c: Likewise.
+	* gcc.dg/tree-ssa/pr64130.c: Likewise.
+	* gcc.dg/tree-ssa/pr37508.c: Change the pattern to be checked as
+	foling now happens early.
+	* gcc.dg/tree-ssa/vrp04.c: Likewise.
+	* gcc.dg/tree-ssa/vrp06.c: Likewise.
+	* gcc.dg/tree-ssa/vrp16.c: Likewise.
+	* gcc.dg/tree-ssa/vrp25.c: Likewise.
+	* gcc.dg/tree-ssa/vrp67.c: Likewise.
+
+2016-09-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77621
+	* gcc.target/i386/pr77621.c: New test.
+	* gcc.target/i386/vect-double-2.c: Update scan-tree-dump-times
+	pattern, loop should vectorize with -mtune=atom.
+
+2016-09-20  Maxim Ostapenko  <m.ostapenko@samsung.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/63299
+	* g++.old-deja/g++.jason/init3.C (My_string::~My_string): Use delete[]
+	instead of delete.
+
+2016-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77626
+	* g++.dg/other/pr77626.C: New test.
+
+	PR c++/77638
+	* g++.dg/cpp0x/udlit-tmpl-arg-neg2.C: New test.
+
+	PR c++/77637
+	* g++.dg/cpp0x/gen-attrs-62.C: New test.
+
+	PR middle-end/77624
+	* c-c++-common/pr77624-1.c: New test.
+	* c-c++-common/pr77624-2.c: New test.
+
 2016-09-20  Andre Vehreschild  <vehre@gcc.gnu.org>
 
 	* gfortran.dg/coarray_allocate_7.f08: Using + instead of fixed number

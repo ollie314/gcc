@@ -1,3 +1,203 @@
+2016-09-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR tree-optimization/77550
+	* tree-vect-stmts.c (create_array_ref): Change parameters.
+	(get_group_alias_ptr_type): New function.
+	(vectorizable_store, vectorizable_load): Use get_group_alias_ptr_type.
+
+2016-09-21  Marek Polacek  <polacek@redhat.com>
+
+	* gimple-ssa-sprintf.c (pass_sprintf_length::compute_format_length):
+	Add falls through comment.
+
+2016-09-21  Richard Biener  <rguenther@suse.de>
+
+	* dwarf2out.c (remove_child_with_prev): Clear child->die_sib.
+	(replace_child): Likewise.
+	(remove_child_TAG): Adjust.
+	(move_marked_base_types): Likewise.
+	(prune_unused_types_prune): Clear die_sib of removed children.
+
+2016-09-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/77326
+	* config/avr/avr.c (avr_notice_update_cc) [CC_NONE]: If insn
+	touches some regs mentioned in cc_status, do CC_STATUS_INIT.
+
+2016-09-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77648
+	* tree-ssa-structalias.c (process_constraint): Handle all DEREF
+	with complex RHS.
+	(make_transitive_closure_constraints): Adjust comment.
+	(make_any_offset_constraints): New function.
+	(handle_rhs_call): Make sure to first expand a pointer to all
+	subfields before transitively closing it.
+	(handle_const_call): Likewise.  Properly expand returned
+	pointers as well.
+	(handle_pure_call): Likewise.
+
+2016-09-21  Richard Biener  <rguenther@suse.de>
+	Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/77621
+	* tree-vect-data-refs.c (vect_analyze_data_ref_accesses): Split
+	group at non-vectorizable stmts.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR tree-optimization/72835
+	* tree-ssa-reassoc.c (make_new_ssa_for_def): New.
+	(make_new_ssa_for_all_defs): Likewise.
+	(zero_one_operation): Replace all SSA_NAMEs defined in the chain.
+
+2016-09-20  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/49905
+	* Makefile.in (OBJS): Add gimple-ssa-sprintf.o.
+	* config/linux.h (TARGET_PRINTF_POINTER_FORMAT): Redefine.
+	* config/linux.c (gnu_libc_printf_pointer_format): New function.
+	* config/sol2.h (TARGET_PRINTF_POINTER_FORMAT): Same.
+	* config/sol2.c (solaris_printf_pointer_format): New function.
+	* doc/invoke.texi (-Wformat-length, -fprintf-return-value): New
+	options.
+	* doc/tm.texi.in (TARGET_PRINTF_POINTER_FORMAT): Document.
+	* doc/tm.texi: Regenerate.
+	* gimple-fold.h (get_range_strlen): New function.
+	(get_maxval_strlen): Declare existing function.
+	* gimple-fold.c (get_range_strlen): Add arguments and compute both
+	maximum and minimum.
+	 (get_range_strlen): Define overload.
+	(get_maxval_strlen): Adjust.
+	* gimple-ssa-sprintf.c: New file and pass.
+	* passes.def (pass_sprintf_length): Add new pass.
+	* targhooks.h (default_printf_pointer_format): Declare new function.
+	(gnu_libc_printf_pointer_format): Same.
+	(solaris_libc_printf_pointer_format): Same.
+	* targhooks.c (default_printf_pointer_format): Define new function.
+	* tree-pass.h (make_pass_sprintf_length): Declare new function.
+	* print-tree.c: Increase buffer size.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	 * tree-vrp.c (get_value_range): Teach PARM_DECL to use ipa-vrp
+	 results.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* common.opt: New option -fipa-vrp.
+	* ipa-cp.c (ipa_get_vr_lat): New.
+	(ipcp_vr_lattice::print): Likewise.
+	(print_all_lattices): Call ipcp_vr_lattice::print.
+	(ipcp_vr_lattice::meet_with): New.
+	(ipcp_vr_lattice::meet_with_1): Likewise.
+	(ipcp_vr_lattice::top_p): Likewise.
+	(ipcp_vr_lattice::bottom_p): Likewsie.
+	(ipcp_vr_lattice::set_to_bottom): Likewise.
+	(set_all_contains_variable): Call VR set_to_bottom.
+	(initialize_node_lattices): Init VR lattices.
+	(propagate_vr_accross_jump_function): New.
+	(propagate_constants_accross_call): Call
+	propagate_vr_accross_jump_function.
+	(ipcp_store_vr_results): New.
+	(ipcp_driver): Handle VR.
+	* ipa-prop.c (ipa_print_node_jump_functions_for_edge): Handle VR.
+	(ipa_set_jf_unknown): Likewise.
+	(ipa_compute_jump_functions_for_edge): Likewise.
+	(ipa_node_params_t::duplicate): Likewise.
+	(ipa_write_jump_function): Likewise.
+	(ipa_read_jump_function): Likewise.
+	(write_ipcp_transformation_info): Likewise.
+	(read_ipcp_transformation_info): Likewise.
+	(ipcp_update_vr): New.
+	(ipcp_transform_function): Handle VR.
+	* ipa-prop.h (struct ipa_vr): New.
+	* cgraph.c: Include tree-vrp.h.
+	* cgraphunit.c: Likewise.
+	* ipa-utils.c: Likewise.
+	* ipa.c: Likewise.
+	* opts.c: Likewise.
+	* toplev.c: Likewise.
+	* ipa-devirt.c: Likewise.
+	* ipa-inline-transform.c: Likewise.
+	* ipa-inline.c: Likewise.
+	* ipa-profile.c: Likewise.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* doc/invoke.texi: Document -fdump-tree-evrp.
+	* passes.def: Define new pass_early_vrp.
+	* timevar.def: Define new TV_TREE_EARLY_VRP.
+	* tree-pass.h (make_pass_early_vrp): New.
+	* tree-ssa-propagate.c: Make replace_uses_in non static.
+	* tree-ssa-propagate.h: Export replace_uses_in.
+	* tree-vrp.c (extract_range_for_var_from_comparison_expr): New.
+	(extract_range_from_assert): Factor out
+	extract_range_for_var_from_comparison_expr.
+	(vrp_initialize_lattice): New.
+	(vrp_initialize): Factor out vrp_initialize_lattice.
+	(vrp_valueize): Fix it to reject complex value ranges.
+	(vrp_free_lattice): New.
+	(evrp_dom_walker::before_dom_children): Likewise.
+	(evrp_dom_walker::after_dom_children): Likewise.
+	(evrp_dom_walker::push_value_range): Likewise.
+	(evrp_dom_walker::pop_value_range): Likewise.
+	(execute_early_vrp): Likewise.
+	(execute_vrp): Call vrp_initialize_lattice and
+	vrp_free_lattice.
+	(make_pass_early_vrp): New.
+
+2016-09-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (mult->ashift peephole2s): Use pow2p_hwi
+	instead of exact_log2.
+
+2016-09-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77621
+	* config/i386/i386.c (ix86_preferred_simd_mode) <case DFmode>:
+	Don't return word_mode for !TARGET_VECTORIZE_DOUBLE.
+	(ix86_add_stmt_cost): Penalize DFmode vector operations
+	for !TARGET_VECTORIZE_DOUBLE.
+
+2016-09-20  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/invoke.texi (Warning Options): Simplify language.
+	(Optimize Options): Complete sentence.
+
+2016-09-20  David Edelsohn  <dje.gcc@gmail.com>
+
+	* dbxout.c (xcoff_debug_hooks):  Add filename parameter to
+	early_finish hook.
+
+2016-09-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): For V4SF
+	inits on power8 and above, use the VMRGEW instruction instead of a
+	permute.
+
+	* config/rs6000/altivec.md (UNSPEC_VMRGEW_DIRECT): New unspec.
+	(p8_vmrgew_v4sf_direct): New VMRGEW insn for V4SF floating
+	initialization.
+
+2016-09-20  Tamar Christina  <tamar.christina@arm.com>
+
+	* config/aarch64/arm_neon.h
+	(vst2_s64, vst2_u64, vst2_f64, vst2_s8): Add missing attributes.
+	(vst3_s64, vst3_u64, vst3_f64, vst3_s8): Likewise.
+	(vst4_s64, vst4_u64, vst4_f64, vst4_s8): Likewise.
+
+2016-09-20  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* config/var/vax.h (ELIMINABLE_REGS): Define.
+	(INITIAL_ELIMINATION_OFFSET): Define.
+
+2016-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/77624
+	* builtins.c (fold_builtin_atomic_always_lock_free): Only look through
+	cast to void * if the cast is from some other pointer type.
+
 2016-09-20  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/77646
@@ -300,7 +500,8 @@
 
 2016-09-14  Pat Haugen  <pthaugen@us.ibm.com>
 
-	* loop-unroll.c (unroll_loop_runtime_iterations): Set probability of succ edge.
+	* loop-unroll.c (unroll_loop_runtime_iterations): Set probability
+	of succ edge.
 
 2016-09-14  Segher Boessenkool  <segher@kernel.crashing.org>
 
@@ -400,7 +601,7 @@
 
 2016-09-13  Tamar Christina  <tamar.christina@arm.com>
 
-	* config/aarch64/aarch64-builtins.c 
+	* config/aarch64/aarch64-builtins.c
 	(aarch64_init_simd_builtins): Fix builtin type signature printing.
 
 2016-09-13  Uros Bizjak  <ubizjak@gmail.com>
