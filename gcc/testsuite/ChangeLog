@@ -1,3 +1,18 @@
+2016-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77429 
+	* gfortran.dg/pr77429.f90: New test.
+
+2016-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77694
+	* gfortran.dg/pr77694.f90: New test.
+
+2016-09-25  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/51244
+	* gcc.target/sh/pr51244-11.c: Add more detailed expected insn matching.
+
 2016-09-24  Dominique d'Humieres  <dominiq@lps.ens.fr>
 
 	* gfortran.dg/coarray_lib_comm_1.f90: Really fix test
