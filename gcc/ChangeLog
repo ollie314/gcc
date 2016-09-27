@@ -1,3 +1,329 @@
+2016-09-27  Maciej W. Rozycki  <macro@imgtec.com>
+
+	* config/mips/constraints.md (d): Fix documentation.
+	* doc/md.texi (Machine Constraints): Update accordingly.
+
+2016-09-27  Richard Biener  <rguenther@suse.de>
+
+	* dwarf2out.c (dwarf2out_init): Move text_section_line_info,
+	cur_line_info_table initialization ...
+	(dwarf2out_assembly_start): ... here.
+
+2016-09-27  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* config/arm/arm.md (*arm_movsi_insn): Add "arch" attribute.
+	* config/arm/vfp.md (*arm_movhi_vfp): Likewise.
+	(*thumb2_movhi_vfp): Likewise.
+	(*arm_movhi_fp16): Remove predication operand from VMOV.F16
+	template.  Expand predicable attribute to mark VMOV.F16 as not
+	predicable.  Add "arch" attribute.
+	(*thumb2_movhi_fp16): Likewise.
+	(*arm_movsi_vfp): Break a long line.  Add "arch" attribute.
+	(*thumb2_movsi_vfp): Add "arch" attribute.
+
+2016-09-27  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_output_symbol): Don't modify
+	VAR_DECL string.
+
+2016-09-27  Marek Polacek  <polacek@redhat.com>
+
+	* config/ia64/ia64.c (ia64_print_operand): Adjust fall through
+	comment.
+
+	* config/c6x/c6x.h: Adjust fall through comment.
+	* config/sh/sh.c (final_prescan_insn): Likewise.
+	* config/visium/visium.c (visium_expand_int_cstore): Likewise.
+	(visium_expand_fp_cstore): Likewise.
+
+2016-09-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.c (const_ok_for_op): Use "Fall through" comment form
+	expected by -Wimplicit-fallthrough.
+	(thumb1_size_rtx_costs): Likewise.
+	(thumb2_reorg): Likewise.
+	(tls_mentioned_p): Add "Fall through" comment.
+	(thumb2_reorg): Likewise.
+	* config/arm/arm-builtins.c (arm_expand_neon_args): Use "Fall through"
+	comment form expected by -Wimplicit-fallthrough.
+
+2016-09-27  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/46266
+	* input.h (RESERVED_LOCATION_P): New macro.
+	* profile.c (branch_prob): Use RESERVED_LOCATION_P and
+	instread of comparison with UNKNOWN_LOCATION.
+
+2016-09-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77745
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	When removing redundant stores make sure to check compatibility
+	of the TBAA state for downstream accesses.
+	* tree-ssa-sccvn.c (visit_reference_op_store): Likewise for when
+	value-numbering virtual operands for store matches.
+
+2016-09-27  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/51244
+	* config/sh/sh.c (sh_rtx_costs): Fix return value of SET of movt and
+	movrt patterns.  Match them before anything else in the SET case.
+
+2016-09-27  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/7970
+	PR gcov-profile/16855
+	PR gcov-profile/44779
+	* coverage.c (build_gcov_exit_decl): New function.
+	(coverage_obj_init): Call the function and generate __gcov_exit
+	destructor.
+	* doc/gcov.texi: Document when __gcov_exit function is called.
+
+2016-09-27  Marek Polacek  <polacek@redhat.com>
+
+	PR bootstrap/77751
+	* Makefile.in (insn-attrtab.o-warn, insn-dfatab.o-warn,
+	insn-latencytab.o-warn, insn-output.o-warn, insn-emit.o-warn): Use
+	-Wno-error instead of -Wno-implicit-fallthrough.
+
+2016-09-27  Martin Liska  <mliska@suse.cz>
+
+	PR bootstrap/77749
+	* gcov-counter.def: Remove GCOV_COUNTER_V_DELTA.
+
+2016-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* combine.c (simplify_comparison): Add canonical FALLTHROUGH comments.
+	* config/i386/i386.c (ix86_dep_by_shift_count_body): Add FALLTHROUGH
+	comments.  Remove break after return.
+	(ix86_fp_compare_code_to_integer, has_dispatch,
+	ix86_simd_clone_usable): Remove break after return.
+
+2016-09-27  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR rlt-optimization/77714
+	* lra-eliminations.c (eliminate_regs_in_insn): Avoid alias on
+	REG_EQUAL note.
+
+2016-09-27  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR ipa/77677
+	* ipa-prop.c (ipa_compute_jump_functions_for_edge): Use
+	extract_range_from_unary_expr to convert value_range.
+	* tree-vrp.c (extract_range_from_unary_expr_1): Rename to.
+	(extract_range_from_unary_expr): This.
+	* tree-vrp.h (extract_range_from_unary_expr): Declare.
+
+2016-09-27  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.md (movcc_internal1): Disparage using CTR or LR.
+
+2016-09-26  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/i386/i386.c (ix86_print_operand)
+	[HAVE_AS_IX86_CMOV_SUN_SYNTAX]: Add gcc_fallthrough.
+	* config/sparc/sparc.c (check_pic): Add fallthrough comment.
+	(epilogue_renumber): Likewise.
+
+2016-09-26  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/77719
+	* tree-ssa-reassoc.c (make_new_ssa_for_def): Use gimple_get_lhs to get lhs
+	instead of gimple_assign_lhs as stmt can be builtins too.
+
+2016-09-26  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* tree.h (memmodel_from_int, memmodel_base, is_mm_relaxed,
+	is_mm_consume, is_mm_acquire, is_mm_release, is_mm_acq_rel,
+	is_mm_seq_cst, is_mm_sync): Move to ...
+	* memmodel.h: This.  New file.
+	* builtins.c: Include memmodel.h.
+	* optabs.c: Likewise.
+	* tsan.c: Likewise.
+	* config/aarch64/aarch64.c: Likewise.
+	* config/alpha/alpha.c: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/i386/i386.c: Likewise.
+	* config/ia64/ia64.c: Likewise.
+	* config/mips/mips.c: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/sparc/sparc.c: Likewise.
+	* genconditions.c: Include memmodel.h in generated file.
+	* genemit.c: Likewise.
+	* genoutput.c: Likewise.
+	* genpeep.c: Likewise.
+	* genpreds.c: Likewise.
+	* genrecog.c: Likewise.
+
+2016-09-26  David Malcolm  <dmalcolm@redhat.com>
+
+	* read-rtl.c (read_rtx_code): Rename local "i" to "idx", and use
+	"c" instead when parsing characters.  Move operand parsing into...
+	(read_rtx_operand): ...this new function, renaming "i" to "idx",
+	and tightening the scope of various locals.
+
+2016-09-26  LH Mouse  <lh_mouse@126.com>
+
+	* config/i386/cygming.h (ASM_OUTPUT_DWARF_OFFSET): Fix typo.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	* system.h: Use __has_attribute to check whether the fallthrough
+	attribute is supported.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	* ipa-inline-analysis.c (find_foldable_builtin_expect): Use
+	gimple_call_internal_p.
+	* ipa-split.c (find_return_bb): Likewise.
+	(execute_split_functions): Likewise.
+	* omp-low.c (dump_oacc_loop_part): Likewise.
+	(oacc_loop_xform_head_tail): Likewise.
+	* predict.c (predict_loops): Likewise.
+	* sanopt.c (pass_sanopt::execute): Likewise.
+	* tree-cfg.c (get_abnormal_succ_dispatcher): Likewise.
+	* tree-parloops.c (oacc_entry_exit_ok_1): Likewise.
+	* tree-stdarg.c (gimple_call_ifn_va_arg_p): Remove function.
+	(expand_ifn_va_arg_1): Use gimple_call_internal_p.
+	(expand_ifn_va_arg): Likewise.
+	* tree-vect-loop.c (vect_determine_vectorization_factor): Likewise.
+	(optimize_mask_stores): Likewise.
+	* tree-vect-stmts.c (vect_simd_lane_linear): Likewise.
+	(vect_transform_stmt): Likewise.
+	* tree-vectorizer.c (vect_loop_vectorized_call): Likewise.
+	* tsan.c (instrument_memory_accesses): Likewise.
+
+2016-09-26  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+            Alexander Monakov  <amonakov@ispras.ru>
+
+	* regrename.c (rename_chains): Check
+	HARD_FRAME_POINTER_IS_FRAME_POINTER rather than
+	HARD_FRAME_POINTER_REGNUM when picking unavailable registers.
+	* sel-sched.c (mark_unavailable_hard_regs): Likewise.
+
+2016-09-26  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_rtx_costs): Add /* fallthrough */.
+	(s390_sched_score): Likewise.
+
+2016-09-26  Martin Liska  <mliska@suse.cz>
+
+	* doc/gcov.texi: Update program output of gcov tool.
+
+2016-09-26  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/23332
+	* profile.c (instrument_values): Do not handle
+	HIST_TYPE_CONST_DELTA.
+	* tree-profile.c (gimple_gen_const_delta_profiler):
+	Remove.
+	* value-prof.c (dump_histogram_value): Do not handle
+	HIST_TYPE_CONST_DELTA.
+	(stream_in_histogram_value): Likewise.
+	(gimple_find_values_to_profile): Likewise.
+	* value-prof.h (enum hist_type): Likewise.
+
+2016-09-26  Martin Liska  <mliska@suse.cz>
+
+	* common.opt: Exclude SANITIZE_UNREACHABLE and SANITIZE_RETURN
+	from default sanitize recover values.
+	* doc/invoke.texi: Fix documentation related to -fsanitize=leak,
+	-fsanitize=address, -fsanitize=thread and -fsanitize-recover.
+	* flag-types.h: Replace couple of 1 << x to 1UL << x, make it
+	consistent.
+	* opts.c (finish_options): Do a generic loop over options
+	that can be recovered.
+	(parse_sanitizer_options): Exclude SANITIZE_UNREACHABLE and
+	SANITIZE_RETURN.
+	(common_handle_option): Likewise.
+	* opts.h: Declare can_recover to sanitizer_opts_s.
+
+2016-09-26  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* target.def(elf_flags_numeric): Change documentation to
+	present tense.
+	* doc/tm.texi: Regenerate.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* Makefile.in (insn-attrtab.o-warn, insn-dfatab.o-warn,
+	insn-latencytab.o-warn, insn-output.o-warn, insn-emit.o-warn): Add
+	-Wno-switch-fallthrough.
+	* builtins.c (expand_builtin_int_roundingfn_2): Add gcc_fallthrough.
+	(expand_builtin): Likewise.
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_libmass): Likewise.
+	* convert.c (convert_to_real_1): Likewise.
+	(convert_to_integer_1): Likewise.
+	* final.c (output_alternate_entry_point): Likewise.
+	* genattrtab.c (make_canonical): Likewise.
+	(write_test_expr): Likewise.
+	* genpreds.c (validate_exp): Likewise.
+	* gimple-ssa-strength-reduction.c
+	(find_candidates_dom_walker::before_dom_children): Likewise.
+	* godump.c (go_format_type): Likewise.
+	* reload1.c (elimination_effects): Likewise.
+	* resource.c (mark_referenced_resources): Likewise.
+	(mark_set_resources): Likewise.
+	* tree-ssa-loop-ivopts.c (find_deriving_biv_for_expr): Likewise.
+	* varasm.c (output_addressed_constants): Likewise.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* common.opt (Wimplicit-fallthrough): New option.
+	* doc/extend.texi: Document statement attributes and the fallthrough
+	attribute.
+	* doc/invoke.texi: Document -Wimplicit-fallthrough.
+	* gimple.h (gimple_call_internal_p): New function.
+	* gimplify.c (struct gimplify_ctx): Add in_switch_expr.
+	(struct label_entry): New struct.
+	(find_label_entry): New function.
+	(case_label_p): New function.
+	(collect_fallthrough_labels): New function.
+	(last_stmt_in_scope): New function.
+	(should_warn_for_implicit_fallthrough): New function.
+	(warn_implicit_fallthrough_r): New function.
+	(maybe_warn_implicit_fallthrough): New function.
+	(expand_FALLTHROUGH_r): New function.
+	(expand_FALLTHROUGH): New function.
+	(gimplify_switch_expr): Call maybe_warn_implicit_fallthrough and
+	expand_FALLTHROUGH for the innermost GIMPLE_SWITCH.
+	(gimplify_label_expr): New function.
+	(gimplify_case_label_expr): Set location.
+	(gimplify_expr): Call gimplify_label_expr.
+	* internal-fn.c (expand_FALLTHROUGH): New function.
+	* internal-fn.def (FALLTHROUGH): New internal function.
+	* langhooks.c (lang_GNU_OBJC): New function.
+	* langhooks.h (lang_GNU_OBJC): Declare.
+	* system.h (gcc_fallthrough): Define.
+	* tree-core.h: Add FALLTHROUGH_LABEL_P comment.
+	* tree.h (FALLTHROUGH_LABEL_P): Define.
+
+2016-09-26  Richard Biener  <rguenther@suse.de>
+
+	* dwarf2out.c (stripattributes): Remove unused function.
+	(DEBUG_NORM_MACINFO_SECTION): Rename to DEBUG_MACINFO_SECTION.
+	Push dwarf_split_debug_info handling into init_sections_and_labels.
+	(DEBUG_NORM_MACRO_SECTION): Likewise to DEBUG_MACRO_SECTION.
+	(DEBUG_MACRO_SECTION_FLAGS): Remove.
+	(debug_macinfo_section_name): New global.
+	(output_macinfo): Use debug_macinfo_section_name.
+	(init_sections_and_labels): Split out section and label generation
+	from dwarf2out_init.  Set debug_macinfo_section_name.
+	(dwarf2out_init): Move text section label generation and emission
+	to ...
+	(dwarf2out_assembly_start): ... here.
+	(dwarf2out_finish): Call init_sections_and_labels before DWARF
+	output starts.
+
+2016-09-26  Richard Biener  <rguenther@suse.de>
+
+	PR debug/77692
+	* cgraphunit.c (analyze_functions): Before early removing
+	global vars calls the late_global_decl debug handler mark
+	the variable as readonly.
+
 2016-09-25  Oleg Endo  <olegendo@gcc.gnu.org>
 
 	PR target/51244
@@ -13,7 +339,7 @@
 	* config/rs6000/rs6000.c (expand_block_compare, do_load_for_compare):
 	Change TARGET_LITTLE_ENDIAN to !BYTES_BIG_ENDIAN.
 
-2016-09-42  David Edelsohn  <dje.gcc@gmail.com>
+2016-09-24  David Edelsohn  <dje.gcc@gmail.com>
 
 	* configure.ac (gcc_cv_as_aix_dwloc): Fix typo in assembly fragment.
 	* configure: Regenerate.

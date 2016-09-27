@@ -1,6 +1,37 @@
+2016-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77666
+	* trans-openmp.c (gfc_omp_private_outer_ref): Return true even for
+	references to allocatable arrays.
+
+2016-09-26  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77420
+	* trans-common.c:  Handle array elements in equivalence when
+	the lower and upper bounds of array spec are NULL.
+
+2016-09-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/48298
+	* interface.c (gfc_find_specific_dtio_proc) : Return NULL if
+	the derived type is broken, as indicated by a flavor other than
+	FL_DERIVED.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* arith.c (eval_intrinsic): Add gcc_fallthrough.
+	* frontend-passes.c (optimize_op): Likewise.
+	(gfc_expr_walker): Likewise.
+	* parse.c (next_fixed): Likewise.
+	* primary.c (match_variable): Likewise.
+	* trans-array.c: Likewise.
+	* trans-expr.c (flatten_array_ctors_without_strlen): Likewise.
+	* trans-io.c (transfer_expr): Likewise.
+
 2016-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
 
-	PR fortran/77429 
+	PR fortran/77429
 	* dependency.c (gfc_check_dependency):  Convert gcc_assert() to
 	a conditional and possible call to  gfc_internal_error().
 

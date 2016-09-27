@@ -1,3 +1,55 @@
+2016-09-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2017.xml: Update status.
+	* doc/html/*: Regenerate.
+	* include/std/functional (__cpp_lib_boyer_moore_searcher): Define.
+	* testsuite/20_util/function_objects/searchers.cc: Test feature macro.
+
+	* doc/xml/manual/status_cxx2017.xml: Update status.
+	* include/c_global/cmath (hypot): Add three-dimensional overloads.
+	* testsuite/26_numerics/headers/cmath/hypot.cc: New.
+
+2016-09-26  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR libstdc++/77727
+	* include/std/optional (optional(const optional<_Up>&)):
+	Default-initialize the base and use emplace.
+	(optional(optional<_Up>&&)): Likewise.
+	* testsuite/20_util/optional/cons/77727.cc: New.
+
+2016-09-26  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/debug/safe_base.h
+	(_Safe_iterator_base::_M_detach_single): Make public.
+
+2016-09-26  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/range_access.h (__cpp_lib_array_constexpr): Do not
+	redefine macro defined in <bits/stl_iterator.h>.
+
+	* include/bits/stl_map.h (map::extract(const_iterator)): Assert that
+	iterator is not past-the-end.
+	* include/bits/stl_multimap.h (multimap::extract(const_iterator)):
+	Likewise.
+	* include/bits/stl_multiset.h (multiset::extract(const_iterator)):
+	Likewise.
+	* include/bits/stl_set.h (set::extract(const_iterator)): Likewise.
+	* include/bits/unordered_map.h (unordered_map::extract(const_iterator))
+	(unordered_multimap::extract(const_iterator)): Likewise.
+	* include/bits/unordered_set.h (unordered_set::extract(const_iterator))
+	(unordered_multiset::extract(const_iterator)): Likewise.
+
+2016-09-26  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR libstdc++/77717
+	* testsuite/21_strings/basic_string_view/operations/compare/char/1.cc:
+	Fix an out-of-bounds access.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* libsupc++/hash_bytes.cc: Add [[gnu::fallthrough]].
+
 2016-09-25  François Dumont  <fdumont@gcc.gnu.org>
 
 	* src/c++11/debug.cc: Include debug/vector. Include cctype. Remove

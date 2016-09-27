@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "gimple.h"
 #include "df.h"
 #include "tm_p.h"
@@ -3832,6 +3833,7 @@ check_pic (int i)
 		      || (GET_CODE (XEXP (op, 0)) == MINUS
 			  && XEXP (XEXP (op, 0), 0) == sparc_got ()
 			  && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST)));
+      /* fallthrough */
     case 2:
     default:
       return 1;
@@ -8371,6 +8373,7 @@ epilogue_renumber (register rtx *where, int test)
 	return 1;
       if (! test && REGNO (*where) >= 24 && REGNO (*where) < 32)
 	*where = gen_rtx_REG (GET_MODE (*where), OUTGOING_REGNO (REGNO(*where)));
+      /* fallthrough */
     case SCRATCH:
     case CC0:
     case PC:

@@ -24,6 +24,7 @@
 #include "backend.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "gimple.h"
 #include "cfghooks.h"
 #include "cfgloop.h"
@@ -5489,7 +5490,7 @@ rs6000_builtin_vectorized_libmass (combined_fn fn, tree type_out,
     CASE_CFN_HYPOT:
     CASE_CFN_POW:
       n_args = 2;
-      /* fall through */
+      gcc_fallthrough ();
 
     CASE_CFN_ACOS:
     CASE_CFN_ACOSH:
@@ -30308,7 +30309,10 @@ rs6000_output_symbol_ref (FILE *file, rtx x)
 		     (TREE_CODE (decl) == FUNCTION_DECL
 		      ? "[DS]" : "[UA]"),
 		     NULL);
-      XSTR (x, 0) = name;
+
+      /* Don't modify name in extern VAR_DECL to include mapping class.  */
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	XSTR (x, 0) = name;
     }
 
   if (VTABLE_NAME_P (name))
