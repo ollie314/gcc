@@ -1,3 +1,15 @@
+2016-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/cpp1z/feat-cxx1z.C: Add __cpp_capture_star_this test.
+
+	* g++.dg/cpp1z/lambda-this1.C: New test.
+	* g++.dg/cpp1z/lambda-this2.C: New test.
+
+	PR c++/77722
+	* g++.dg/ubsan/return-4.C: New test.
+	* g++.dg/ubsan/return-5.C: New test.
+	* g++.dg/ubsan/return-6.C: New test.
+
 2016-09-27  Jiong Wang  <jiong.wang@arm.com>
 
 	* lib/target-supports.exp
