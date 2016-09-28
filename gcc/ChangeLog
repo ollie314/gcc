@@ -1,3 +1,62 @@
+2016-09-27  Richard Biener  <rguenther@suse.de>
+
+	* dwarf2out.c (cu_die_list): New global.
+	(dwarf2out_finish): Walk cu_die_list instead of limbo DIEs.  Add
+	main_comp_unit_die to cu_die_list if we created it.
+	Move break_out_includes ...
+	(dwarf2out_early_finish): ... here.  Push created CU DIEs onto
+	the cu_die_list.
+
+2016-09-28  Richard Biener  <rguenther@suse.de>
+
+	* dwarf2out.c (struct die_struct): Add removed flag.
+	(lookup_type_die): If the DIE is marked as removed, clear
+	TYPE_SYMTAB_DIE and return NULL.
+	(lookup_decl_die): If the DIE is marked as removed, remove it
+	from the hash and return NULL.
+	(mark_removed): New helper.
+	(prune_unused_types_prune): Call it for removed DIEs.
+	(gen_subprogram_die): Move the premark_used_types call to after
+	DIEs for the functions scopes are generated.
+	(process_scope_var): Do not re-create pruned types or type decls.
+	Make sure to also re-parent type decls.
+	(dwarf2out_finish): Move unused type pruning and debug_types
+	handling ...
+	(dwarf2out_early_finish): ... here.
+
+2016-09-29  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc-c.c: New file.
+	* config/arc/arc-c.def: Likewise.
+	* config/arc/t-arc: Likewise.
+	* config.gcc: Include arc-c.o as c and cpp object.
+	* config/arc/arc-protos.h (arc_cpu_cpp_builtins): Add prototype.
+	* config/arc/arc.h (TARGET_CPU_CPP_BUILTINS): Use
+	arc_cpu_cpp_builtins.
+
+2016-09-29  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.md (*rotrsi3_cnt1): New pattern.
+	(*ashlsi2_cnt1, *lshrsi3_cnt1, *ashrsi3_cnt1): Likewise.
+
+2016-09-28  Nathan Sidwell  <nathan@acm.org>
+
+	* gimple-pretty-print.c (dump_gimple_call_args): Simplify "' "
+	printing.
+
+2016-09-28  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	PR tree-optimization/61056
+	* gimple-fold.c (gimple_fold_builtin_strchr):
+	New function to optimize strchr (s, 0) to strlen.
+	(gimple_fold_builtin): Add BUILT_IN_STRCHR case.
+
+2016-09-27  Robin Dapp  <rdapp@linux.vnet.ibm.com>
+
+	PR tree-optimization/77724
+	* tree-vect-loop-manip.c (create_intersect_range_checks_index):
+	Add tree_fits_shwi_p check.
+
 2016-09-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* auto-inc-dec.c (try_merge): Remove break after return.
@@ -190,7 +249,7 @@
 	(read_rtx_operand): ...this new function, renaming "i" to "idx",
 	and tightening the scope of various locals.
 
-2016-09-26  LH Mouse  <lh_mouse@126.com>
+2016-09-26  Liu Hao  <lh_mouse@126.com>
 
 	* config/i386/cygming.h (ASM_OUTPUT_DWARF_OFFSET): Fix typo.
 

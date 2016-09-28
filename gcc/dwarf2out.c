@@ -2687,6 +2687,10 @@ typedef struct GTY((chain_circular ("%h.die_sib"), for_user)) die_struct {
   /* Die is used and must not be pruned as unused.  */
   BOOL_BITFIELD die_perennial_p : 1;
   BOOL_BITFIELD comdat_type_p : 1; /* DIE has a type signature */
+  /* Whether this DIE was removed from the DIE tree, for example via
+     prune_unused_types.  We don't consider those present from the
+     DIE lookup routines.  */
+  BOOL_BITFIELD removed : 1;
   /* Lots of spare bits.  */
 }
 die_node;
@@ -2861,6 +2865,9 @@ static GTY(()) dw_die_ref single_comp_unit_die;
 
 /* A list of type DIEs that have been separated into comdat sections.  */
 static GTY(()) comdat_type_node *comdat_type_list;
+
+/* A list of CU DIEs that have been separated.  */
+static GTY(()) limbo_die_node *cu_die_list;
 
 /* A list of DIEs with a NULL parent waiting to be relocated.  */
 static GTY(()) limbo_die_node *limbo_die_list;
@@ -5066,7 +5073,13 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
 static inline dw_die_ref
 lookup_type_die (tree type)
 {
-  return TYPE_SYMTAB_DIE (type);
+  dw_die_ref die = TYPE_SYMTAB_DIE (type);
+  if (die && die->removed)
+    {
+      TYPE_SYMTAB_DIE (type) = NULL;
+      return NULL;
+    }
+  return die;
 }
 
 /* Given a TYPE_DIE representing the type TYPE, if TYPE is an
@@ -5131,7 +5144,16 @@ decl_die_hasher::equal (die_node *x, tree y)
 static inline dw_die_ref
 lookup_decl_die (tree decl)
 {
-  return decl_die_table->find_with_hash (decl, DECL_UID (decl));
+  dw_die_ref *die = decl_die_table->find_slot_with_hash (decl, DECL_UID (decl),
+							 NO_INSERT);
+  if (!die)
+    return NULL;
+  if ((*die)->removed)
+    {
+      decl_die_table->clear_slot (die);
+      return NULL;
+    }
+  return *die;
 }
 
 /* Returns a hash value for X (which really is a var_loc_list).  */
@@ -20415,8 +20437,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
   int declaration = (current_function_decl != decl
 		     || class_or_namespace_scope_p (context_die));
 
-  premark_used_types (DECL_STRUCT_FUNCTION (decl));
-
   /* Now that the C++ front end lazily declares artificial member fns, we
      might need to retrofit the declaration into its class.  */
   if (!declaration && !origin && !old_die
@@ -21138,6 +21158,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       call_site_count = -1;
       tail_call_site_count = -1;
     }
+
+  /* Mark used types after we have created DIEs for the functions scopes.  */
+  premark_used_types (DECL_STRUCT_FUNCTION (decl));
 }
 
 /* Returns a hash value for X (which really is a die_struct).  */
@@ -23221,9 +23244,16 @@ process_scope_var (tree stmt, tree decl, tree origin, dw_die_ref context_die)
 
   if (TREE_CODE (decl_or_origin) == FUNCTION_DECL)
     die = lookup_decl_die (decl_or_origin);
-  else if (TREE_CODE (decl_or_origin) == TYPE_DECL
-           && TYPE_DECL_IS_STUB (decl_or_origin))
-    die = lookup_type_die (TREE_TYPE (decl_or_origin));
+  else if (TREE_CODE (decl_or_origin) == TYPE_DECL)
+    {
+      if (TYPE_DECL_IS_STUB (decl_or_origin))
+	die = lookup_type_die (TREE_TYPE (decl_or_origin));
+      else
+	die = lookup_decl_die (decl_or_origin);
+      /* Avoid re-creating the DIE late if it was optimized as unused early.  */
+      if (! die && ! early_dwarf)
+	return;
+    }
   else
     die = NULL;
 
@@ -26176,6 +26206,16 @@ prune_unused_types_update_strings (dw_die_ref die)
       }
 }
 
+/* Mark DIE and its children as removed.  */
+
+static void
+mark_removed (dw_die_ref die)
+{
+  dw_die_ref c;
+  die->removed = true;
+  FOR_EACH_CHILD (die, c, mark_removed (c));
+}
+
 /* Remove from the tree DIE any dies that aren't marked.  */
 
 static void
@@ -26205,12 +26245,14 @@ prune_unused_types_prune (dw_die_ref die)
 	      die->die_child = prev;
 	    }
 	  c->die_sib = NULL;
+	  mark_removed (c);
 	  return;
 	}
       else
 	{
 	  next = c->die_sib;
 	  c->die_sib = NULL;
+	  mark_removed (c);
 	}
 
     if (c != prev->die_sib)
@@ -27816,37 +27858,6 @@ dwarf2out_finish (const char *)
   resolve_addr (comp_unit_die ());
   move_marked_base_types ();
 
-  if (flag_eliminate_unused_debug_types)
-    prune_unused_types ();
-
-  /* Generate separate COMDAT sections for type DIEs. */
-  if (use_debug_types)
-    {
-      break_out_comdat_types (comp_unit_die ());
-
-      /* Each new type_unit DIE was added to the limbo die list when created.
-         Since these have all been added to comdat_type_list, clear the
-         limbo die list.  */
-      limbo_die_list = NULL;
-
-      /* For each new comdat type unit, copy declarations for incomplete
-         types to make the new unit self-contained (i.e., no direct
-         references to the main compile unit).  */
-      for (ctnode = comdat_type_list; ctnode != NULL; ctnode = ctnode->next)
-        copy_decls_for_unworthy_types (ctnode->root_die);
-      copy_decls_for_unworthy_types (comp_unit_die ());
-
-      /* In the process of copying declarations from one unit to another,
-         we may have left some declarations behind that are no longer
-         referenced.  Prune them.  */
-      prune_unused_types ();
-    }
-
-  /* Generate separate CUs for each of the include files we've seen.
-     They will go into limbo_die_list.  */
-  if (flag_eliminate_dwarf2_dups)
-    break_out_includes (comp_unit_die ());
-
   /* Initialize sections and labels used for actual assembler output.  */
   init_sections_and_labels ();
 
@@ -27854,7 +27865,7 @@ dwarf2out_finish (const char *)
      have children.  */
   add_sibling_attributes (comp_unit_die ());
   limbo_die_node *node;
-  for (node = limbo_die_list; node; node = node->next)
+  for (node = cu_die_list; node; node = node->next)
     add_sibling_attributes (node->die);
   for (ctnode = comdat_type_list; ctnode != NULL; ctnode = ctnode->next)
     add_sibling_attributes (ctnode->root_die);
@@ -27863,7 +27874,15 @@ dwarf2out_finish (const char *)
      skeleton compile_unit DIE that remains in the .o, while
      most attributes go in the DWO compile_unit_die.  */
   if (dwarf_split_debug_info)
-    main_comp_unit_die = gen_compile_unit_die (NULL);
+    {
+      limbo_die_node *cu;
+      main_comp_unit_die = gen_compile_unit_die (NULL);
+      cu = limbo_die_list;
+      gcc_assert (cu->die == main_comp_unit_die);
+      limbo_die_list = limbo_die_list->next;
+      cu->next = cu_die_list;
+      cu_die_list = cu;
+    }
   else
     main_comp_unit_die = comp_unit_die ();
 
@@ -27975,7 +27994,7 @@ dwarf2out_finish (const char *)
 
   /* Output all of the compilation units.  We put the main one last so that
      the offsets are available to output_pubnames.  */
-  for (node = limbo_die_list; node; node = node->next)
+  for (node = cu_die_list; node; node = node->next)
     output_comp_unit (node->die, 0);
 
   hash_table<comdat_type_hasher> comdat_type_table (100);
@@ -28176,6 +28195,48 @@ dwarf2out_early_finish (const char *filename)
 	}
     }
   deferred_asm_name = NULL;
+
+  if (flag_eliminate_unused_debug_types)
+    prune_unused_types ();
+
+  /* Generate separate COMDAT sections for type DIEs. */
+  if (use_debug_types)
+    {
+      break_out_comdat_types (comp_unit_die ());
+
+      /* Each new type_unit DIE was added to the limbo die list when created.
+         Since these have all been added to comdat_type_list, clear the
+         limbo die list.  */
+      limbo_die_list = NULL;
+
+      /* For each new comdat type unit, copy declarations for incomplete
+         types to make the new unit self-contained (i.e., no direct
+         references to the main compile unit).  */
+      for (comdat_type_node *ctnode = comdat_type_list;
+	   ctnode != NULL; ctnode = ctnode->next)
+        copy_decls_for_unworthy_types (ctnode->root_die);
+      copy_decls_for_unworthy_types (comp_unit_die ());
+
+      /* In the process of copying declarations from one unit to another,
+         we may have left some declarations behind that are no longer
+         referenced.  Prune them.  */
+      prune_unused_types ();
+    }
+
+  /* Generate separate CUs for each of the include files we've seen.
+     They will go into limbo_die_list and from there to cu_die_list.  */
+  if (flag_eliminate_dwarf2_dups)
+    {
+      gcc_assert (limbo_die_list == NULL);
+      break_out_includes (comp_unit_die ());
+      limbo_die_node *cu;
+      while ((cu = limbo_die_list))
+	{
+	  limbo_die_list = cu->next;
+	  cu->next = cu_die_list;
+	  cu_die_list = cu;
+	}
+    }
 
   /* The early debug phase is now finished.  */
   early_dwarf_finished = true;
