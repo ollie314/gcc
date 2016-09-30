@@ -1,3 +1,141 @@
+2016-09-30  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/77764
+	* gfortran.dg/dec_union_8.f90: New testcase.
+
+2016-09-30  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/77782
+	* gfortran.dg/dec_structure_16.f90: New testcase.
+
+2016-09-30  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* gfortran.dg/coarray_allocate_10.f08: New test.
+	* gfortran.dg/coindexed_1.f90: Above fixes allow execution.
+
+2016-09-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/ifcvt_avoid_const_materialization_1.c: New test.
+
+2016-09-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77399
+	* gcc.dg/tree-ssa/forwprop-35.c: New testcase.
+
+2016-09-29  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* c-c++-common/pr27336.c: Make dependency on 
+	-fdelete-null-pointer-checks explicit.
+	* g++.dg/cpp0x/constexpr-array-ptr10.C: Likewise.
+	* g++.dg/cpp0x/constexpr-nullptr-1.C: Likewise.
+	* g++.dg/lto/pr69589_0.C: Add nios2-*-elf to unsupported targets.
+	* gcc.dg/pic-1.c: Require fpic target support.
+	* gcc.dg/pic-2.c: Likewise.
+
+2016-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0001R1 - C++17 removal of register storage class specifier
+	* c-c++-common/Wvarargs-2.c (foo1): Except new warning for C++17.
+	* c-c++-common/vector-subscript-2.c (vf): Expect new error for
+	C++17.
+	* c-c++-common/vector-subscript-5.c (foo): Don't use register
+	keyword if not __SSE2__.
+	* c-c++-common/Wvarargs.c (foo1, foo3): Expect new warnings for
+	C++17.
+	* g++.dg/compat/struct-layout-1_generate.c (iterative_hash): Remove
+	register keywords.
+	* g++.dg/eh/pr29166.C: Add -Wno-register option.
+	* g++.dg/warn/register-parm-1.C (erroneous_warning,
+	no_erroneous_warning): Expect new warnings for C++17.
+	* g++.dg/warn/register-var-2.C (f): Likewise.
+	* g++.dg/parse/register1.C (f): Expect new error for C++17.
+	* g++.dg/parse/linkage2.C (foo): Likewise.
+	* g++.dg/torture/pr36826.C (CoinMin, CoinMax): Avoid register
+	keyword on parameters for C++17.
+	* g++.dg/cpp1z/register1.C: New test.
+	* g++.dg/cpp1z/register2.C: New test.
+	* g++.dg/cpp1z/register3.C: New test.
+
+2016-09-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/adx-check.h (main): Simplify feature bit tests.
+	* gcc.target/i386/avx2-check.h (main): Ditto.
+	* gcc.target/i386/avx512bw-check.h (main): Ditto.
+	* gcc.target/i386/avx512cd-check.h (main): Ditto.
+	* gcc.target/i386/avx512dq-check.h (main): Ditto.
+	* gcc.target/i386/avx512er-check.h (main): Ditto.
+	* gcc.target/i386/avx512f-check.h (main): Ditto.
+	* gcc.target/i386/avx512ifma-check.h (main): Ditto.
+	* gcc.target/i386/avx512vbmi-check.h (main): Ditto.
+	* gcc.target/i386/avx512vl-check.h (main): Ditto.
+
+2016-09-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77756
+	* gcc.target/i386/pr77756.c: New test.
+
+2016-09-29  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/cpp0x/fallthrough2.C: Use the c++14_down target.
+
+2016-09-29  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/cpp0x/fallthrough2.C: Only expect the warning in C++11 and
+	C++14.
+
+2016-09-29  Martin Liska  <mliska@suse.cz>
+
+	* objc/execute/construct1.m: New test.
+
+2016-09-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77768
+	* gcc.dg/torture/pr77768.c: New testcase.
+
+2016-09-28  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77407
+	* gcc.dg/pr77407.c: New testcase.
+
+2016-09-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/55152
+	* gcc.dg/pr55152.c: New testcase.
+	* gcc.dg/tree-ssa/phi-opt-5.c: Adjust.
+
+2016-09-29  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/profile-update-warning.c: Restrict to ia32.
+	(dg-options): Remove -m32.
+
+2016-09-28  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/77721
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-6.c: New test.
+
+2016-09-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/77707
+	* gfortran.dg/inquire_17.f90: New test.
+
+2016-09-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77467
+	* g++.dg/cpp1y/constexpr-77467.C: New test.
+
+2016-09-28  Martin Sebor  <msebor@redhat.com>
+
+	PR c/77762
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c (test_vsnprintf_chk_s):
+	Call __builtin___vsnprintf_chk, not __builtin___snprintf_chk.
+	(test_sprintf_p_const): Adjust line numbers to avoid failures
+	introduced in r240503.
+
+2016-09-28  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/77683
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Add test cases.
+
 2016-09-28  Bernd Edlinger  <bernd.edlinger@hotmail.de>
 
 	PR c++/77748
@@ -87,7 +225,7 @@
 2016-09-26  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Adjust regex to accept
-	singular form of byte when quantity is unknown. 
+	singular form of byte when quantity is unknown.
 
 2016-09-26  Marek Polacek  <polacek@redhat.com>
 
@@ -141,7 +279,7 @@
 
 2016-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
 
-	PR fortran/77429 
+	PR fortran/77429
 	* gfortran.dg/pr77429.f90: New test.
 
 2016-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
@@ -311,38 +449,24 @@
 	tests, enabled if macro __ARM_FEATURE_FP16_VECTOR_ARITHMETIC is
 	defined.
 	* gcc.target/aarch64/advsimd-intrinsics/vmul_lane.c: Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vmul_n.c:
-	Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vneg.c:
-	Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vmul_n.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vneg.c: Likewise.
 	* gcc.target/aarch64/advsimd-intrinsics/vpXXX.inc: Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vpadd.c:
-	Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vpmax.c:
-	Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vpmin.c:
-	Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrecpe.c:
-	Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrecps.c:
-	Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrnd.c:
-	Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vpadd.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vpmax.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vpmin.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrecpe.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrecps.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrnd.c: Likewise.
 	* gcc.target/aarch64/advsimd-intrinsics/vrndX.inc: Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrnda.c:
-	Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrndm.c:
-	Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrndn.c:
-	Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrndp.c:
-	Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrndx.c:
-	Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrnda.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrndm.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrndn.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrndp.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrndx.c: Likewise.
 	* gcc.target/aarch64/advsimd-intrinsics/vrsqrte.c: Likewise.
 	* gcc.target/aarch64/advsimd-intrinsics/vrsqrts.c: Likewise.
-	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vsub.c:
-	Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vsub.c: Likewise.
 
 2016-09-23  Jiong Wang  <jiong.wang@arm.com>
 	    Matthew Wahab  <matthew.wahab@arm.com>

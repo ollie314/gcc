@@ -1017,6 +1017,7 @@ See RS/6000 and PowerPC Options.
 -mupper-regs-di -mno-upper-regs-di @gol
 -mupper-regs -mno-upper-regs @gol
 -mfloat128 -mno-float128 -mfloat128-hardware -mno-float128-hardware @gol
+-mgnu-attribute -mno-gnu-attribute @gol
 -mlra -mno-lra}
 
 @emph{RX Options}
@@ -10032,6 +10033,10 @@ Enable detection of use-after-return.  This kind of protection
 is enabled by default when using @option{-fsanitize=address} option.
 To disable use-after-return detection use 
 @option{--param asan-use-after-return=0}.
+
+Note: The check is disabled by default at runtime.  To enable the check,
+you should set environment variable @env{ASAN_OPTIONS} to
+@code{detect_stack_use_after_return=1}.
 
 @item asan-instrumentation-with-call-threshold
 If number of memory accesses in function being instrumented
@@ -21298,6 +21303,14 @@ Change the current ABI to use the ELFv2 ABI.
 This is the default ABI for little-endian PowerPC 64-bit Linux.
 Overriding the default ABI requires special system support and is
 likely to fail in spectacular ways.
+
+@item -mgnu-attribute
+@itemx -mno-gnu-attribute
+@opindex mgnu-attribute
+@opindex mno-gnu-attribute
+Emit .gnu_attribute assembly directives to set tag/value pairs in a
+.gnu.attributes section that specify ABI variations in function
+parameters or return values.
 
 @item -mprototype
 @itemx -mno-prototype
