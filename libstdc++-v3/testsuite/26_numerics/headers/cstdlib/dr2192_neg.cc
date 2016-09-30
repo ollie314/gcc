@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2016 Free Software Foundation, Inc.
+// Copyright (C) 2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,17 +15,15 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-do compile { target c++14 } }
+// { dg-do compile { target c++11 } }
 
-#include <experimental/numeric>
+// NB: Don't include any other headers in this file.
+// LWG 2192 requires abs to be ill-formed for unsigned arguments.
+#include <cstdlib>
 
-using std::experimental::fundamentals_v2::lcm;
-
-static_assert(lcm(21, 6) == 42, "");
-static_assert(lcm(41, 0) == 0, "LCD with zero is zero");
-static_assert(lcm(0, 7) == 0, "LCD with zero is zero");
-static_assert(lcm(0, 0) == 0, "no division by zero");
-
-static_assert(lcm(1u, 2) == 2, "unsigned and signed");
-static_assert(lcm(3, 4u) == 12, "signed and unsigned");
-static_assert(lcm(5u, 6u) == 30, "unsigned and unsigned");
+void test()
+{
+  std::abs(0u);                 // { dg-error "ambiguous" }
+  std::abs(0lu);                // { dg-error "ambiguous" }
+  std::abs(0llu);               // { dg-error "ambiguous" }
+}
