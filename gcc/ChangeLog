@@ -1,6 +1,40 @@
+2016-10-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77798
+	* genmatch.c (get_operand_type): Add operand position arg
+	and handle COND_EXPR comparison operand with fixed boolean_type_node.
+	(expr::gen_transform): Adjust.
+	(dt_simplify::gen_1): Likewise.
+
+2016-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (<mask_codefor><code><mode>): Add FALLTHRU
+	comments.  Simplify asserts, remove unnecessary conditions.
+	Formatting fixes.
+	(*<code><mode>3): Likewise.
+
+2016-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/invoke.texi (-Wregister): Document.
+
+2016-09-30  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* configure.ac: Split CHECKING_P into CHECKING_P and
+	ENABLE_EXTRA_CHECKING.
+	* configure: Regenerated.
+	* config.in: Adjust commment of CHECKING_P.  Add ENABLE_EXTRA_CHECKING.
+	* common.opt (flag_checking): Use CHECKING_P and ENABLE_EXTRA_CHECKING.
+
+2016-09-30  Prasad Ghangal  <prasad.ghangal@gmail.com>
+
+	PR other/31566
+	* gcc.c (process_command): For @filename handling, output
+	the correct name if the file does not exist.
+
 2016-09-30  Marek Polacek  <polacek@redhat.com>
 
 	* config/aarch64/aarch64-simd.md: Adjust fall through comments.
+	* config/alpha/predicates.md: Likewise.
 
 2016-09-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
