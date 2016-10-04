@@ -1,3 +1,46 @@
+2016-09-26  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71550
+	PR tree-optimization/71403
+	* gcc.c-torture/execute/pr71550.c: New test.
+
+2016-10-03  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.target/avr/torture/builtins-error.c: Add -ffat-lto-objects
+	option.
+
+2016-10-03  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Revert
+	2016-09-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/ifcvt_avoid_const_materialization_1.c: New test.
+
+2016-10-03  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/cpp0x/nullptr37.C: New test.
+
+2016-10-03  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-c++-common/Wint-in-bool-context.c: Update test.
+
+2016-10-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/ext/asm3.C (two): Only use register keyword for C++14 and
+	earlier.
+	* g++.dg/charset/asm2.c (memmove): Likewise.
+	* g++.dg/tls/diag-2.C (foo): Expect -Wregister error for C++17.
+	* g++.dg/tls/diag-4.C (foo): Likewise.
+	* c-c++-common/vector-subscript-2.c (vf): Change dg-error to
+	dg-warning, fix up regex.
+	* g++.old-deja/g++.brendan/warnings4.C: Limit to c++14_down targets.
+	* g++.old-deja/g++.mike/p700.C: Add -Wno-register.
+	* g++.old-deja/g++.mike/net31.C: Likewise.
+	* g++.old-deja/g++.other/regstack.C (foo): Expect -Wregister warning
+	for C++17.
+	* g++.old-deja/g++.jason/enum3.C: Add -Wno-register.
+	* g++.old-deja/g++.eh/ia64-1.C: Likewise.
+
 2016-10-01  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/77798

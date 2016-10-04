@@ -1,6 +1,6 @@
-// <experimental/utility> -*- C++ -*-
+// Mutex pool used to limit contention -*- C++ -*-
 
-// Copyright (C) 2015-2016 Free Software Foundation, Inc.
+// Copyright (C) 2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -22,28 +22,13 @@
 // see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 // <http://www.gnu.org/licenses/>.
 
-/** @file experimental/utility
- *  This is a TS C++ Library header.
- */
+namespace __gnu_internal _GLIBCXX_VISIBILITY(hidden)
+{
+  const unsigned char mask = 0xf;
+  const unsigned char invalid = mask + 1;
 
-#ifndef _GLIBCXX_EXPERIMENTAL_UTILITY
-#define _GLIBCXX_EXPERIMENTAL_UTILITY 1
-
-#include <utility>
-#include <bits/uses_allocator.h>
-#include <experimental/bits/lfts_config.h>
-
-namespace std {
-namespace experimental {
-inline namespace fundamentals_v2 {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
-  // 3.1.2, erased-type placeholder
-  using erased_type = std::__erased_type;
-
-_GLIBCXX_END_NAMESPACE_VERSION
-} // namespace fundamentals_v2
-} // namespace experimental
-} // namespace std
-
-#endif
+  /* Returns different instances of __mutex depending on the passed index
+   * in order to limit contention.
+   */
+  __gnu_cxx::__mutex& get_mutex(unsigned char i);
+}
