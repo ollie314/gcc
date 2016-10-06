@@ -1,3 +1,52 @@
+2016-10-06  Martin Liska  <mliska@suse.cz>
+
+	* gcc.c: Set -fprofile-update=atomic when profiling is
+	enabled and -pthread is set.  Warn when one combines
+	-pthread and -fprofile-update=single for an app using
+	profiling code.
+
+2016-10-06  Martin Liska  <mliska@suse.cz>
+
+	PR bootstrap/77788
+	* expmed.h (mul_highpart_cost_ptr): Add an gcc_assert.
+	* gimple-ssa-strength-reduction.c (slsr_process_cast):
+	Initialize a pointer to NULL.
+	(slsr_process_copy): Likewise.
+	* input.c (location_get_source_line): Likewise.
+	* tree-ssa-ccp.c (optimize_atomic_bit_test_and): Likewise.
+
+2016-10-05  Andrew Senkevich  <andrew.senkevich@intel.com>
+
+	* common/config/i386/i386-common.c (OPTION_MASK_ISA_PCOMMIT_UNSET,
+	OPTION_MASK_ISA_PCOMMIT_SET): Deleted definitions.
+	(ix86_handle_option): Deleted handle of OPT_mpcommit.
+	* config.gcc: Deleted pcommitintrin.h
+	* config/i386/pcommitintrin.h: Deleted file.
+	* config/i386/cpuid.h (bit_PCOMMIT): Deleted.
+	* config/i386/driver-i386.c (host_detect_local_cpu): Deleted pcommit
+	detection.
+	* config/i386/i386-c.c (ix86_target_macros_internal): Deleted define
+	__PCOMMIT__.
+	* config/i386/i386.c (ix86_target_string): Deleted -mpcommit.
+	(PTA_PCOMMIT): Deleted define.
+	(ix86_option_override_internal): Deleted handle of option.
+	(ix86_valid_target_attribute_inner_p): Deleted pcommit.
+	* config/i386/i386-builtin.def (IX86_BUILTIN_PCOMMIT,
+	__builtin_ia32_pcommit): Deleted.
+	* config/i386/i386.h (TARGET_PCOMMIT, TARGET_PCOMMIT_P): Deleted.
+	* config/i386/i386.md (unspecv): Deleted UNSPECV_PCOMMIT.
+	(pcommit): Deleted instruction.
+	* config/i386/i386.opt: Mention -mpcommit deprecation.
+	* config/i386/x86intrin.h: Deleted inclusion of pcommitintrin.h.
+
+2016-10-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77874
+	* config/i386/sse.md (<mask_codefor><code><mode>3<mask_name>):
+	Remove wrong assert.
+	(<floatsuffix>float<sseintvecmodelower><mode>2<mask_name><round_name>:
+	Use <round_constraint> as operand 1 constraint.
+
 2016-10-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR sanitizer/66343

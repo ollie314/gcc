@@ -1539,15 +1539,20 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
 	gl_kind = clk_rvalueref;
     }
   else if (expr)
-    {
-      gl_kind = lvalue_kind (expr);
-      if (gl_kind & clk_class)
-	/* A class prvalue is not a glvalue.  */
-	gl_kind = clk_none;
-    }
+    gl_kind = lvalue_kind (expr);
+  else if (CLASS_TYPE_P (from)
+	   || TREE_CODE (from) == ARRAY_TYPE)
+    gl_kind = clk_class;
   else
     gl_kind = clk_none;
-  is_lvalue = gl_kind && !(gl_kind & clk_rvalueref);
+
+  /* Don't allow a class prvalue when LOOKUP_NO_TEMP_BIND.  */
+  if ((flags & LOOKUP_NO_TEMP_BIND)
+      && (gl_kind & clk_class))
+    gl_kind = clk_none;
+
+  /* Same mask as real_lvalue_p.  */
+  is_lvalue = gl_kind && !(gl_kind & (clk_rvalueref|clk_class));
 
   tfrom = from;
   if ((gl_kind & clk_bitfield) != 0)
@@ -1569,11 +1574,7 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
      [8.5.3/5 dcl.init.ref] is changed to also require direct bindings for
      const and rvalue references to rvalues of compatible class type.
      We should also do direct bindings for non-class xvalues.  */
-  if (related_p
-      && (gl_kind
-	  || (!(flags & LOOKUP_NO_TEMP_BIND)
-	      && (CLASS_TYPE_P (from)
-		  || TREE_CODE (from) == ARRAY_TYPE))))
+  if (related_p && gl_kind)
     {
       /* [dcl.init.ref]
 
@@ -10172,27 +10173,30 @@ extend_ref_init_temps (tree decl, tree init, vec<tree, va_gc> **cleanups)
     return init;
   if (TREE_CODE (type) == REFERENCE_TYPE)
     init = extend_ref_init_temps_1 (decl, init, cleanups);
-  else if (is_std_init_list (type))
+  else
     {
-      /* The temporary array underlying a std::initializer_list
-	 is handled like a reference temporary.  */
       tree ctor = init;
       if (TREE_CODE (ctor) == TARGET_EXPR)
 	ctor = TARGET_EXPR_INITIAL (ctor);
       if (TREE_CODE (ctor) == CONSTRUCTOR)
 	{
-	  tree array = CONSTRUCTOR_ELT (ctor, 0)->value;
-	  array = extend_ref_init_temps_1 (decl, array, cleanups);
-	  CONSTRUCTOR_ELT (ctor, 0)->value = array;
+	  if (is_std_init_list (type))
+	    {
+	      /* The temporary array underlying a std::initializer_list
+		 is handled like a reference temporary.  */
+	      tree array = CONSTRUCTOR_ELT (ctor, 0)->value;
+	      array = extend_ref_init_temps_1 (decl, array, cleanups);
+	      CONSTRUCTOR_ELT (ctor, 0)->value = array;
+	    }
+	  else
+	    {
+	      unsigned i;
+	      constructor_elt *p;
+	      vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (ctor);
+	      FOR_EACH_VEC_SAFE_ELT (elts, i, p)
+		p->value = extend_ref_init_temps (decl, p->value, cleanups);
+	    }
 	}
-    }
-  else if (TREE_CODE (init) == CONSTRUCTOR)
-    {
-      unsigned i;
-      constructor_elt *p;
-      vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (init);
-      FOR_EACH_VEC_SAFE_ELT (elts, i, p)
-	p->value = extend_ref_init_temps (decl, p->value, cleanups);
     }
 
   return init;

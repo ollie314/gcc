@@ -1,3 +1,32 @@
+2016-10-06  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/cpp1z/init-statement9.C: New test.
+
+2016-10-05  Andrew Senkevich  <andrew.senkevich@intel.com>
+
+	* gcc.target/i386/pcommit-1.c: Deleted.
+	* gcc.target/i386/sse-12.c: Deleted -pcommit option.
+	* gcc.target/i386/sse-13.c: Ditto.
+	* gcc.target/i386/sse-14.c: Ditto.
+	* gcc.target/i386/sse-22.c: Ditto.
+	* gcc.target/i386/sse-23.c: Ditto.
+	* g++.dg/other/i386-2.C: Ditto.
+
+2016-10-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/pr77833.c: Require int128 effective target.
+
+2016-10-05  Steven G. Kargl  <kargls@gcc.gnu.org>
+
+	PR fortran/58991
+	PR fortran/58992
+	* gfortran.dg/associate_22.f90: New test.
+
+2016-10-05  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_union_9.f90: New testcase.
+	* gfortran.dg/dec_union_10.f90: New testcase.
+
 2016-10-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR sanitizer/66343
