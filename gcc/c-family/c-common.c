@@ -463,6 +463,7 @@ const struct c_common_resword c_common_reswords[] =
   { "__attribute__",	RID_ATTRIBUTE,	0 },
   { "__auto_type",	RID_AUTO_TYPE,	D_CONLY },
   { "__bases",          RID_BASES, D_CXXONLY },
+  { "__builtin_addressof", RID_ADDRESSOF, D_CXXONLY },
   { "__builtin_call_with_static_chain",
     RID_BUILTIN_CALL_WITH_STATIC_CHAIN, D_CONLY },
   { "__builtin_choose_expr", RID_CHOOSE_EXPR, D_CONLY },
@@ -486,6 +487,8 @@ const struct c_common_resword c_common_reswords[] =
   { "__has_trivial_constructor", RID_HAS_TRIVIAL_CONSTRUCTOR, D_CXXONLY },
   { "__has_trivial_copy", RID_HAS_TRIVIAL_COPY, D_CXXONLY },
   { "__has_trivial_destructor", RID_HAS_TRIVIAL_DESTRUCTOR, D_CXXONLY },
+  { "__has_unique_object_representations", RID_HAS_UNIQUE_OBJ_REPRESENTATIONS,
+					D_CXXONLY },
   { "__has_virtual_destructor", RID_HAS_VIRTUAL_DESTRUCTOR, D_CXXONLY },
   { "__imag",		RID_IMAGPART,	0 },
   { "__imag__",		RID_IMAGPART,	0 },
@@ -4588,6 +4591,11 @@ c_common_truthvalue_conversion (location_t location, tree expr)
       return expr;
 
     case INTEGER_CST:
+      if (TREE_CODE (TREE_TYPE (expr)) == ENUMERAL_TYPE
+	  && !integer_zerop (expr)
+	  && !integer_onep (expr))
+	warning_at (location, OPT_Wint_in_bool_context,
+		    "enum constant in boolean context");
       return integer_zerop (expr) ? truthvalue_false_node
 				  : truthvalue_true_node;
 
@@ -4686,21 +4694,8 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 	}
       /* Distribute the conversion into the arms of a COND_EXPR.  */
       if (c_dialect_cxx ())
-	{
-	  tree op1 = TREE_OPERAND (expr, 1);
-	  tree op2 = TREE_OPERAND (expr, 2);
-	  int w = warn_int_in_bool_context;
-	  warn_int_in_bool_context = 0;
-	  /* In C++ one of the arms might have void type if it is throw.  */
-	  if (!VOID_TYPE_P (TREE_TYPE (op1)))
-	    op1 = c_common_truthvalue_conversion (location, op1);
-	  if (!VOID_TYPE_P (TREE_TYPE (op2)))
-	    op2 = c_common_truthvalue_conversion (location, op2);
-	  expr = fold_build3_loc (location, COND_EXPR, truthvalue_type_node,
-				  TREE_OPERAND (expr, 0), op1, op2);
-	  warn_int_in_bool_context = w;
-	  goto ret;
-	}
+	/* Avoid premature folding.  */
+	break;
       else
 	{
 	  int w = warn_int_in_bool_context;

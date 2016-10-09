@@ -1,3 +1,34 @@
+2016-10-08  Jason Merrill  <jason@redhat.com>
+
+	* c-common.c (c_common_truthvalue_conversion): Don't distribute
+	into COND_EXPR in C++.
+
+2016-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-lex.c (c_lex_with_flags) <case CPP_COMMENT>: For CPP_COMMENT
+	token with PREV_FALLTHROUGH, skip all following CPP_PADDING and
+	CPP_COMMENT tokens and set add_flags to PREV_FALLTHROUGH afterwards.
+
+2016-10-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement LWG2296 helper intrinsic
+	* c-common.h (enum rid): Add RID_ADDRESSOF.
+	* c-common.c (c_common_reswords): Add __builtin_addressof.
+
+2016-10-07  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77700
+	* c-common.c (c_common_truthvalue_conversion): Warn also for
+	suspicious enum values in boolean context.
+
+2016-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0258R2 - helper for C++17
+	std::has_unique_object_representations trait
+	* c-common.h (enum rid): Add RID_HAS_UNIQUE_OBJ_REPRESENTATIONS.
+	* c-common.c (c_common_reswords): Add
+	__has_unique_object_representations.
+
 2016-10-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR sanitizer/66343

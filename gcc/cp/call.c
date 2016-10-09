@@ -3671,6 +3671,14 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags,
        creating a garbage BASELINK; constructors can't be inherited.  */
     ctors = lookup_fnfields_slot (totype, complete_ctor_identifier);
 
+  /* FIXME P0135 doesn't say what to do in C++17 about list-initialization from
+     a single element.  For now, let's handle constructors as before and also
+     consider conversion operators from the element.  */
+  if (cxx_dialect >= cxx1z
+      && BRACE_ENCLOSED_INITIALIZER_P (expr)
+      && CONSTRUCTOR_NELTS (expr) == 1)
+    fromtype = TREE_TYPE (CONSTRUCTOR_ELT (expr, 0)->value);
+
   if (MAYBE_CLASS_TYPE_P (fromtype))
     {
       tree to_nonref = non_reference (totype);
@@ -3745,7 +3753,13 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags,
     }
 
   if (conv_fns)
-    first_arg = expr;
+    {
+      if (BRACE_ENCLOSED_INITIALIZER_P (expr))
+	/* FIXME see above about C++17.  */
+	first_arg = CONSTRUCTOR_ELT (expr, 0)->value;
+      else
+	first_arg = expr;
+    }
 
   for (; conv_fns; conv_fns = TREE_CHAIN (conv_fns))
     {
@@ -6365,6 +6379,17 @@ build_temp (tree expr, tree type, int flags,
   int savew, savee;
   vec<tree, va_gc> *args;
 
+  *diagnostic_kind = DK_UNSPECIFIED;
+
+  /* If the source is a packed field, calling the copy constructor will require
+     binding the field to the reference parameter to the copy constructor, and
+     we'll end up with an infinite loop.  If we can use a bitwise copy, then
+     do that now.  */
+  if ((lvalue_kind (expr) & clk_packed)
+      && CLASS_TYPE_P (TREE_TYPE (expr))
+      && !type_has_nontrivial_copy_init (TREE_TYPE (expr)))
+    return get_target_expr_sfinae (expr, complain);
+
   savew = warningcount + werrorcount, savee = errorcount;
   args = make_tree_vector_single (expr);
   expr = build_special_member_call (NULL_TREE, complete_ctor_identifier,
@@ -6374,8 +6399,6 @@ build_temp (tree expr, tree type, int flags,
     *diagnostic_kind = DK_WARNING;
   else if (errorcount > savee)
     *diagnostic_kind = DK_ERROR;
-  else
-    *diagnostic_kind = DK_UNSPECIFIED;
   return expr;
 }
 
@@ -6549,7 +6572,6 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       {
 	struct z_candidate *cand = convs->cand;
 	tree convfn = cand->fn;
-	unsigned i;
 
 	/* When converting from an init list we consider explicit
 	   constructors, but actually trying to call one is an error.  */
@@ -6595,12 +6617,10 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 
 	expr = mark_rvalue_use (expr);
 
-	/* Set user_conv_p on the argument conversions, so rvalue/base
-	   handling knows not to allow any more UDCs.  */
-	for (i = 0; i < cand->num_convs; ++i)
-	  cand->convs[i]->user_conv_p = true;
-
-	expr = build_over_call (cand, LOOKUP_NORMAL, complain);
+	/* Pass LOOKUP_NO_CONVERSION so rvalue/base handling knows not to allow
+	   any more UDCs.  */
+	expr = build_over_call (cand, LOOKUP_NORMAL|LOOKUP_NO_CONVERSION,
+				complain);
 
 	/* If this is a constructor or a function returning an aggr type,
 	   we need to build up a TARGET_EXPR.  */
@@ -7068,7 +7088,12 @@ build_x_va_arg (source_location loc, tree expr, tree type)
       return convert_from_reference (expr);
     }
 
-  return build_va_arg (loc, expr, type);
+  tree ret = build_va_arg (loc, expr, type);
+  if (CLASS_TYPE_P (type))
+    /* Wrap the VA_ARG_EXPR in a TARGET_EXPR now so other code doesn't need to
+       know how to handle it.  */
+    ret = get_target_expr (ret);
+  return ret;
 }
 
 /* TYPE has been given to va_arg.  Apply the default conversions which
@@ -7695,6 +7720,13 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 		       "  (you can disable this with -fno-deduce-init-list)");
 	    }
 	}
+
+      /* Set user_conv_p on the argument conversions, so rvalue/base handling
+	 knows not to allow any more UDCs.  This needs to happen after we
+	 process cand->warnings.  */
+      if (flags & LOOKUP_NO_CONVERSION)
+	conv->user_conv_p = true;
+
       val = convert_like_with_context (conv, arg, fn, i - is_method,
 				       conversion_warning
 				       ? complain
@@ -7805,6 +7837,14 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	arg = targ;
       else
 	arg = cp_build_indirect_ref (arg, RO_NULL, complain);
+
+      /* In C++17 we shouldn't be copying a TARGET_EXPR except into a base
+	 subobject.  */
+      if (CHECKING_P && cxx_dialect >= cxx1z)
+	gcc_assert (TREE_CODE (arg) != TARGET_EXPR
+		    || seen_error ()
+		    /* See unsafe_copy_elision_p.  */
+		    || DECL_BASE_CONSTRUCTOR_P (fn));
 
       /* [class.copy]: the copy constructor is implicitly defined even if
 	 the implementation elided its use.  */
@@ -8065,6 +8105,19 @@ in_charge_arg_for_name (tree name)
   return NULL_TREE;
 }
 
+/* We've built up a constructor call RET.  Complain if it delegates to the
+   constructor we're currently compiling.  */
+
+static void
+check_self_delegation (tree ret)
+{
+  if (TREE_CODE (ret) == TARGET_EXPR)
+    ret = TARGET_EXPR_INITIAL (ret);
+  tree fn = cp_get_callee_fndecl (ret);
+  if (fn && DECL_ABSTRACT_ORIGIN (fn) == current_function_decl)
+    error ("constructor delegates to itself");
+}
+
 /* Build a call to a constructor, destructor, or an assignment
    operator for INSTANCE, an expression with class type.  NAME
    indicates the special member function to call; *ARGS are the
@@ -8138,6 +8191,38 @@ build_special_member_call (tree instance, tree name, vec<tree, va_gc> **args,
 
   gcc_assert (instance != NULL_TREE);
 
+  /* In C++17, "If the initializer expression is a prvalue and the
+     cv-unqualified version of the source type is the same class as the class
+     of the destination, the initializer expression is used to initialize the
+     destination object."  Handle that here to avoid doing overload
+     resolution.  */
+  if (cxx_dialect >= cxx1z
+      && args && vec_safe_length (*args) == 1
+      && name == complete_ctor_identifier)
+    {
+      tree arg = (**args)[0];
+
+      /* FIXME P0135 doesn't say how to handle direct initialization from a
+	 type with a suitable conversion operator.  Let's handle it like
+	 copy-initialization, but allowing explict conversions.  */
+      if (!reference_related_p (class_type, TREE_TYPE (arg)))
+	arg = perform_implicit_conversion_flags (class_type, arg,
+						 tf_warning, flags);
+      if (TREE_CODE (arg) == TARGET_EXPR
+	  && (same_type_ignoring_top_level_qualifiers_p
+	      (class_type, TREE_TYPE (arg))))
+	{
+	  if (is_dummy_object (instance))
+	    return arg;
+	  if ((complain & tf_error)
+	      && (flags & LOOKUP_DELEGATING_CONS))
+	    check_self_delegation (arg);
+	  /* Avoid change of behavior on Wunused-var-2.C.  */
+	  mark_lvalue_use (instance);
+	  return build2 (INIT_EXPR, class_type, instance, arg);
+	}
+    }
+
   fns = lookup_fnfields (binfo, name, 1);
 
   /* When making a call to a constructor or destructor for a subobject
@@ -8182,11 +8267,8 @@ build_special_member_call (tree instance, tree name, vec<tree, va_gc> **args,
 
   if ((complain & tf_error)
       && (flags & LOOKUP_DELEGATING_CONS)
-      && name == complete_ctor_identifier 
-      && TREE_CODE (ret) == CALL_EXPR
-      && (DECL_ABSTRACT_ORIGIN (TREE_OPERAND (CALL_EXPR_FN (ret), 0))
-	  == current_function_decl))
-    error ("constructor delegates to itself");
+      && name == complete_ctor_identifier)
+    check_self_delegation (ret);
 
   return ret;
 }
