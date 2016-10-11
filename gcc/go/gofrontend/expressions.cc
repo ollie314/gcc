@@ -3604,6 +3604,7 @@ Unsafe_type_conversion_expression::do_get_backend(Translate_context* context)
               || et->channel_type() != NULL
               || et->map_type() != NULL
               || et->function_type() != NULL
+	      || et->integer_type() != NULL
               || et->is_nil_type());
   else if (et->is_unsafe_pointer_type())
     go_assert(t->points_to() != NULL);
@@ -7017,6 +7018,26 @@ Builtin_call_expression::do_lower(Gogo* gogo, Named_object* function,
 	  }
       }
       break;
+
+    case BUILTIN_PRINT:
+    case BUILTIN_PRINTLN:
+      // Force all the arguments into temporary variables, so that we
+      // don't try to evaluate something while holding the print lock.
+      if (this->args() == NULL)
+	break;
+      for (Expression_list::iterator pa = this->args()->begin();
+	   pa != this->args()->end();
+	   ++pa)
+	{
+	  if (!(*pa)->is_variable())
+	    {
+	      Temporary_statement* temp =
+		Statement::make_temporary(NULL, *pa, loc);
+	      inserter->insert(temp);
+	      *pa = Expression::make_temporary_reference(temp, loc);
+	    }
+	}
+      break;
     }
 
   return this;
@@ -7077,6 +7098,7 @@ Builtin_call_expression::do_flatten(Gogo*, Named_object*,
       break;
 
     case BUILTIN_LEN:
+    case BUILTIN_CAP:
       Expression_list::iterator pa = this->args()->begin();
       if (!(*pa)->is_variable()
 	  && ((*pa)->type()->map_type() != NULL
@@ -7217,10 +7239,7 @@ Builtin_call_expression::lower_make()
 			      Expression::make_nil(loc),
 			      Expression::make_nil(loc));
   else if (is_chan)
-    call = Runtime::make_call((have_big_args
-			       ? Runtime::MAKECHANBIG
-			       : Runtime::MAKECHAN),
-			      loc, 2, type_arg, len_arg);
+    call = Runtime::make_call(Runtime::MAKECHAN, loc, 2, type_arg, len_arg);
   else
     go_unreachable();
 
@@ -8300,7 +8319,31 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 		this->seen_ = false;
 	      }
 	    else if (arg_type->channel_type() != NULL)
-              val = Runtime::make_call(Runtime::CHAN_CAP, location, 1, arg);
+	      {
+		// The second field is the capacity.  If the pointer
+		// is nil, the capacity is zero.
+		Type* uintptr_type = Type::lookup_integer_type("uintptr");
+		Type* pint_type = Type::make_pointer_type(int_type);
+		Expression* parg = Expression::make_unsafe_cast(uintptr_type,
+								arg,
+								location);
+		int off = int_type->integer_type()->bits() / 8;
+		Expression* eoff = Expression::make_integer_ul(off,
+							       uintptr_type,
+							       location);
+		parg = Expression::make_binary(OPERATOR_PLUS, parg, eoff,
+					       location);
+		parg = Expression::make_unsafe_cast(pint_type, parg, location);
+		Expression* nil = Expression::make_nil(location);
+		nil = Expression::make_cast(pint_type, nil, location);
+		Expression* cmp = Expression::make_binary(OPERATOR_EQEQ,
+							  arg, nil, location);
+		Expression* zero = Expression::make_integer_ul(0, int_type,
+							       location);
+		Expression* indir = Expression::make_unary(OPERATOR_MULT,
+							   parg, location);
+		val = Expression::make_conditional(cmp, zero, indir, location);
+	      }
 	    else
 	      go_unreachable();
 	  }
@@ -8313,7 +8356,9 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
     case BUILTIN_PRINTLN:
       {
 	const bool is_ln = this->code_ == BUILTIN_PRINTLN;
-        Expression* print_stmts = NULL;
+
+	Expression* print_stmts = Runtime::make_call(Runtime::PRINTLOCK,
+						     location, 0);
 
 	const Expression_list* call_args = this->args();
 	if (call_args != NULL)
@@ -8325,8 +8370,7 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 		if (is_ln && p != call_args->begin())
 		  {
                     Expression* print_space =
-                        Runtime::make_call(Runtime::PRINT_SPACE,
-                                           this->location(), 0);
+		      Runtime::make_call(Runtime::PRINTSP, location, 0);
 
                     print_stmts =
                         Expression::make_compound(print_stmts, print_space,
@@ -8337,51 +8381,51 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 		Type* type = arg->type();
                 Runtime::Function code;
 		if (type->is_string_type())
-                  code = Runtime::PRINT_STRING;
+                  code = Runtime::PRINTSTRING;
 		else if (type->integer_type() != NULL
 			 && type->integer_type()->is_unsigned())
 		  {
 		    Type* itype = Type::lookup_integer_type("uint64");
 		    arg = Expression::make_cast(itype, arg, location);
-                    code = Runtime::PRINT_UINT64;
+                    code = Runtime::PRINTUINT;
 		  }
 		else if (type->integer_type() != NULL)
 		  {
 		    Type* itype = Type::lookup_integer_type("int64");
 		    arg = Expression::make_cast(itype, arg, location);
-                    code = Runtime::PRINT_INT64;
+                    code = Runtime::PRINTINT;
 		  }
 		else if (type->float_type() != NULL)
 		  {
                     Type* dtype = Type::lookup_float_type("float64");
                     arg = Expression::make_cast(dtype, arg, location);
-                    code = Runtime::PRINT_DOUBLE;
+                    code = Runtime::PRINTFLOAT;
 		  }
 		else if (type->complex_type() != NULL)
 		  {
                     Type* ctype = Type::lookup_complex_type("complex128");
                     arg = Expression::make_cast(ctype, arg, location);
-                    code = Runtime::PRINT_COMPLEX;
+                    code = Runtime::PRINTCOMPLEX;
 		  }
 		else if (type->is_boolean_type())
-                  code = Runtime::PRINT_BOOL;
+                  code = Runtime::PRINTBOOL;
 		else if (type->points_to() != NULL
 			 || type->channel_type() != NULL
 			 || type->map_type() != NULL
 			 || type->function_type() != NULL)
 		  {
                     arg = Expression::make_cast(type, arg, location);
-                    code = Runtime::PRINT_POINTER;
+                    code = Runtime::PRINTPOINTER;
 		  }
 		else if (type->interface_type() != NULL)
 		  {
 		    if (type->interface_type()->is_empty())
-                      code = Runtime::PRINT_EMPTY_INTERFACE;
+                      code = Runtime::PRINTEFACE;
 		    else
-                      code = Runtime::PRINT_INTERFACE;
+                      code = Runtime::PRINTIFACE;
 		  }
 		else if (type->is_slice_type())
-                  code = Runtime::PRINT_SLICE;
+                  code = Runtime::PRINTSLICE;
 		else
 		  {
 		    go_assert(saw_errors());
@@ -8389,30 +8433,22 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 		  }
 
                 Expression* call = Runtime::make_call(code, location, 1, arg);
-                if (print_stmts == NULL)
-                  print_stmts = call;
-                else
-                  print_stmts = Expression::make_compound(print_stmts, call,
-                                                          location);
+		print_stmts = Expression::make_compound(print_stmts, call,
+							location);
 	      }
 	  }
 
 	if (is_ln)
 	  {
             Expression* print_nl =
-                Runtime::make_call(Runtime::PRINT_NL, location, 0);
-            if (print_stmts == NULL)
-              print_stmts = print_nl;
-            else
-              print_stmts = Expression::make_compound(print_stmts, print_nl,
-                                                      location);
+                Runtime::make_call(Runtime::PRINTNL, location, 0);
+	    print_stmts = Expression::make_compound(print_stmts, print_nl,
+						    location);
 	  }
 
-        // There aren't any arguments to the print builtin.  The compiler
-        // issues a warning for this so we should avoid getting the backend
-        // representation for this call.  Instead, perform a no-op.
-        if (print_stmts == NULL)
-          return context->backend()->boolean_constant_expression(false);
+	Expression* unlock = Runtime::make_call(Runtime::PRINTUNLOCK,
+						location, 0);
+	print_stmts = Expression::make_compound(print_stmts, unlock, location);
 
         return print_stmts->get_backend(context);
       }
@@ -13729,9 +13765,8 @@ Receive_expression::do_get_backend(Translate_context* context)
   Expression* recv_addr =
     Expression::make_temporary_reference(this->temp_receiver_, loc);
   recv_addr = Expression::make_unary(OPERATOR_AND, recv_addr, loc);
-  Expression* recv =
-    Runtime::make_call(Runtime::RECEIVE, loc, 3,
-		       td, this->channel_, recv_addr);
+  Expression* recv = Runtime::make_call(Runtime::CHANRECV1, loc, 3,
+					td, this->channel_, recv_addr);
   return Expression::make_compound(recv, recv_ref, loc)->get_backend(context);
 }
 

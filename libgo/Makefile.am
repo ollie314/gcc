@@ -474,7 +474,6 @@ runtime_files = \
 	runtime/go-new.c \
 	runtime/go-nosys.c \
 	runtime/go-panic.c \
-	runtime/go-print.c \
 	runtime/go-recover.c \
 	runtime/go-reflect-call.c \
 	runtime/go-rune.c \
@@ -520,7 +519,6 @@ runtime_files = \
 	$(runtime_thread_files) \
 	runtime/yield.c \
 	$(rtems_task_variable_add_file) \
-	chan.c \
 	cpuprof.c \
 	go-iface.c \
 	lfstack.c \

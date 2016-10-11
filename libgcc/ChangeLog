@@ -1,3 +1,13 @@
+2016-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/77586
+	* config.host (ia64*-*-elf*, ia64*-*-freebsd*, ia64-hp-*vms*): Use
+	soft-fp.
+
+2016-10-10  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* config.host: Add support for aarch64-*-freebsd*.
+
 2016-10-05  Andreas Schwab  <schwab@suse.de>
 
 	* config/ia64/crtbegin.S (__do_jv_register_classes): Remove.

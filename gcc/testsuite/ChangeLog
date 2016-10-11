@@ -1,3 +1,173 @@
+2016-10-11  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_math.f90: New testsuite.
+
+2016-10-11  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/tree-ssa/pr59597.c: Typedef  __INT32_TYPE__ to i32.
+	(main): Declare j as i32 instead of int.
+
+2016-10-11  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR testsuite/PR77710
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-4.c: Use *-*-* as catch-all
+	target triplet instead of *-*-*-*.
+
+2016-10-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/unchecked_convert10.adb: New test.
+	* gnat.dg/unchecked_convert11.adb: Likewise.
+	* gnat.dg/unchecked_convert12.adb: Likewise.
+
+2016-10-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/cbcond-1.c: New test.
+	* gcc.target/sparc/cbcond-2.c: Likewise.
+	* gcc.target/sparc/movcc-1.c: Likewise.
+	* gcc.target/sparc/movcc-2.c: Likewise.
+	* gcc.target/sparc/setcc-1.c: Adjust.
+	* gcc.target/sparc/setcc-2.c: Likewise.
+	* gcc.target/sparc/setcc-3.c: Likewise.
+	* gcc.target/sparc/setcc-4.c: Likewise.
+	* gcc.target/sparc/setcc-5.c: Likewise.
+	* gcc.target/sparc/setcc-6.c: New test.
+	* gcc.target/sparc/setcc-7.c: Likewise.
+	* gcc.target/sparc/setcc-8.c: Likewise.
+	* gcc.target/sparc/setcc-9.c: Likewise.
+	* gcc.target/sparc/setcc-10.c: Likewise.
+
+2016-10-10  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71947
+	* gcc.dg/tree-ssa/pr71947-1.c: New test.
+	* gcc.dg/tree-ssa/pr71947-2.c: New test.
+	* gcc.dg/tree-ssa/pr71947-3.c: New test.
+	* gcc.dg/tree-ssa/pr71947-4.c: New test.
+	* gcc.dg/tree-ssa/pr71947-5.c: New test.
+	* gcc.dg/tree-ssa/pr71947-6.c: New test.
+
+2016-10-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/77915
+	* gfortran.dg/matmul_11.f90:  New test.
+
+2016-10-10  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/unary_scalar_op.inc: Support FMT64.
+	* gcc.target/aarch64/advsimd-intrinsics/vabdh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcageh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcagth_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcaleh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcalth_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vceqh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vceqzh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcgeh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcgezh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcgth_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcgtzh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcleh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vclezh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vclth_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcltzh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtah_s16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtah_s64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtah_u16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtah_u64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_f16_s16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_f16_s64_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_f16_u16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_f16_u64_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_f16_s16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_f16_s64_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_f16_u16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_f16_u64_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_s16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_s64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_u16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_u64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_s16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_s64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_u16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_u64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtmh_s16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtmh_s64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtmh_u16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtmh_u64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtnh_s16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtnh_s64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtnh_u16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtnh_u64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtph_s16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtph_s64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtph_u16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtph_u64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vfmash_lane_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmaxh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vminh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmulh_lane_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmulxh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmulxh_lane_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrecpeh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrecpsh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrecpxh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrsqrteh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrsqrtsh_f16_1.c: New.
+
+2016-10-10  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vdiv_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vfmas_lane_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vfmas_n_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmaxnmv_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmaxv_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vminnmv_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vminv_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmul_lane_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmulx_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmulx_lane_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmulx_n_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vpminmaxnm_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndi_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vsqrt_f16_1.c: New.
+
+2016-10-10  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/arm-neon-ref.h (FP16_SUPPORTED):
+	Enable AArch64.
+	* gcc.target/aarch64/advsimd-intrinsics/vdup_lane.c: Add support for
+	vdup*_laneq.
+	* gcc.target/aarch64/advsimd-intrinsics/vduph_lane.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vtrn_half.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vuzp_half.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vzip_half.c: New.
+
+2016-10-10  Matthew Wahab  <matthew.wahab@arm.com>
+	    Jiong Wang  <jiong.wang@arm.com>
+
+	* target-supports.exp (add_options_for_arm_v8_2a_fp16_scalar): Mention
+	AArch64 support.
+	(add_options_for_arm_v8_2a_fp16_neon): Likewise.
+	(check_effective_target_arm_v8_2a_fp16_scalar_ok_nocache): Support
+	AArch64 targets.
+	(check_effective_target_arm_v8_2a_fp16_neon_ok_nocache): Support
+	AArch64 targets.
+	(check_effective_target_arm_v8_2a_fp16_scalar_hw): Support AArch64
+	targets.
+	(check_effective_target_arm_v8_2a_fp16_neon_hw): Likewise.
+
+2016-10-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/vfa.ads: New test.
+
+2016-10-10  Eric Botgazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/inline13.ad[sb]: New test.
+	* gnat.dg/inline13_pkg.ad[sb]: New helper.
+
+2016-10-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/biased_subtype.adb: New test.
+
 2016-10-09  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/77901
