@@ -1,3 +1,76 @@
+2016-10-12  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
+
+	PR target/77934
+	* config/rs6000/vmx.md (vsx_concat_<mode>): The mtvsrdd instruction
+	needs a base register for arg 1.
+
+2016-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* common.opt (Wimplicit-fallthrough) Turn into alias to
+	-Wimplicit-fallthrough=3.  Remove EnabledBy.
+	(Wimplicit-fallthrough=): New option.
+	* gimplify.c (warn_implicit_fallthrough_r): Use
+	OPT_Wimplicit_fallthrough_ instead of OPT_Wimplicit_fallthrough.
+	* doc/invoke.texi (-Wimplicit-fallthrough): Document as alias
+	to -Wimplicit-fallthrough=3.
+	(-Wimplicit-fallthrough=): Document.
+
+2016-10-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.c (emit_scc_insn): Remove direct support for EQ
+	and GEU in DImode if TARGET_SUBXC.
+	* config/sparc/sparc.md (seqdi<W:mode>_zero): Remove TARGET_SUBXC.
+	(seqdi<W:mode>_zero_subxc): Delete.
+	(neg_seqdi<W:mode>_zero): Remove TARGET_VIS3.
+	(neg_seqdi<W:mode>_zero_vis3): Delete.
+	(plus_seqdi<W:mode>_zero): Likewise.
+	(minus_seqdi<W:mode>_zero): Likewise.
+	(plus_plus_sltu<W:mode>): Accept only register.
+	(addx<W:mode>): Likewise.
+	(plus_sltu<W:mode>_vis3): Likewise.
+	(plus_plus_sltu<W:mode>_vis3): Likewise.
+	(neg_sgeu<W:mode>_vis3): Delete.
+	(minus_sgeu<W:mode>_vis3): Likewise.
+	(addxc<W:mode>): Accept only registers.
+	(neg_sltu<W:mode>_subxc): Write %%g0 instead of 0.
+	(minus_neg_sltu<W:mode>_subxc): Accept only register.
+	(neg_plus_sltu<W:mode>_subxc): Likewise.
+	(minus_sltu<W:mode>_subxc): Write %%g0 instead of 0.
+	(minus_minus_sltu<W:mode>_subxc): Accept only register.
+	(sgeu<W:mode>_insn_subxc): Delete.
+	(plus_sgeu<W:mode>_subxc): Likewise.
+	(subxc<W:mode>): Accept only register.
+	(scc splitter): Split always GEU again.
+
+2016-10-11  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/77424
+	* tree-ssa-threadupdate.c (thread_through_all_blocks): Remove
+	dead conditionals.  Assert that all e->aux fields are NULL.
+
+2016-10-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* print-rtl.c (print_rtx): Rename "i" to "idx".  Split out the
+	operand-printing "switch" statement into...
+	(print_rtx_operand_code_0): ...this new function, ...
+	(print_rtx_operand_code_e): ...this new function, ...
+	(print_rtx_operand_codes_E_and_V): ...this new function, ...
+	(print_rtx_operand_code_i): ...this new function, ...
+	(print_rtx_operand_code_r): ...this new function, ...
+	(print_rtx_operand_code_u): ...this new function, ...
+	(print_rtx_operand): ...and this new function.
+
+2016-10-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha-passes.def: New file.
+	* config/alpha/t-alpha: New file.
+	* config/alpha/alpha-protos.h (gcc::context, rtl_opt_pass): Declare.
+	(make_pass_handle_trap_shadows): New prototype.
+	(make_pass_align_insns): Ditto.
+	* config/alpha/alpha.c (alpha_option_override): Don't register
+	passes here.
+	* config.gcc (alpha*-*-*) Add alpha/t-alpha to tmake_file.
+
 2016-10-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/77924
@@ -229,7 +302,7 @@
 
 2016-10-10  Jeff Law  <law@redhat.com>
 
-        PR tree-optimization/71947
+	PR tree-optimization/71947
 	* tree-ssa-dom.c (cprop_into_stmt): Avoid replacing A with B, then
 	B with A within a single statement.
 
@@ -524,12 +597,16 @@
 
 	* config/aarch64/aarch64-arches.def (AARCH64_ARCH): #undef at the end.
 	* config/aarch64/aarch64-cores.def (AARCH64_CORE): Likewise.
-	* config/aarch64/aarch64-fusion-pairs.def (AARCH64_FUSION_PAIR): Likewise.
-	* config/aarch64/aarch64-option-extensions.def (AARCH64_OPT_EXTENSION): Likewise.
-	* config/aarch64/aarch64-tuning-flags.def (AARCH64_EXTRA_TUNING_OPTION): Likewise.
+	* config/aarch64/aarch64-fusion-pairs.def (AARCH64_FUSION_PAIR):
+	Likewise.
+	* config/aarch64/aarch64-option-extensions.def (AARCH64_OPT_EXTENSION):
+	Likewise.
+	* config/aarch64/aarch64-tuning-flags.def (AARCH64_EXTRA_TUNING_OPTION):
+	Likewise.
 	* config/aarch64/aarch64-opts.h (AARCH64_CORE): Don't #undef here.
 	(AARCH64_ARCH): Likewise.
-	* common/config/aarch64/aarch64-common.c (AARCH64_OPT_EXTENSION): Likewise.
+	* common/config/aarch64/aarch64-common.c (AARCH64_OPT_EXTENSION):
+	Likewise.
 	(AARCH64_CORE): Likewise.
 	(AARCH64_ARCH): Likewise.
 	* config/aarch64/aarch64-protos.h (AARCH64_FUSION_PAIR): Likewise.
