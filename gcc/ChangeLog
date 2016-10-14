@@ -1,3 +1,391 @@
+2016-10-14  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* optabs.def: Remove optab function gen_int_libfunc for sdivmod_optab
+	and udivmod_optab.
+
+2016-10-13  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* config/m68k/m68k.c (m68k_option_override): Check
+	opt_fstack_limit_symbol_arg and opt_fstack_limit_register_no
+	instead of stack_limit_rtx.
+
+2016-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (gen_member_die): Handle inline static data member
+	definitions.
+
+2016-10-13  Nathan Sidwell  <nathan@acm.org>
+
+	* gcov-io.c (gcov_open): Fix documentation.  Simplify setting
+	gcov_var.mode.  Remove unnecessary fstat.
+
+2016-10-13  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR bootstrap/77962
+	* function.c (thread_prologue_and_epilogue_insns): Call all
+	make_*logue_seq in the same order as traditional.  Call them
+	all a second time if shrink_wrapped_separate.
+
+2016-10-13  Marek Polacek  <polacek@redhat.com>
+
+	* Makefile.in (insn-attrtab.o-warn, insn-dfatab.o-warn,
+	insn-latencytab.o-warn, insn-output.o-warn, insn-emit.o-warn): Don't
+	use -Wno-error.
+
+2016-10-13  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/77937
+	* gimple-ssa-strength-reduction.c (analyze_increments): Set cost
+	to infinite when we have a pointer with an increment of -1.
+
+2016-10-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* coretypes.h: Move MEMMODEL_* macros and enum memmodel definition
+	into ...
+	* memmodel.h: This file.
+	* alias.c, asan.c, auto-inc-dec.c, bb-reorder.c, bt-load.c,
+	  caller-save.c, calls.c, ccmp.c, cfgbuild.c, cfgcleanup.c,
+	  cfgexpand.c, cfgloopanal.c, cfgrtl.c, cilk-common.c, combine.c,
+	  combine-stack-adj.c, common/config/aarch64/aarch64-common.c,
+	  common/config/arm/arm-common.c, common/config/bfin/bfin-common.c,
+	  common/config/c6x/c6x-common.c, common/config/i386/i386-common.c,
+	  common/config/ia64/ia64-common.c, common/config/nvptx/nvptx-common.c,
+	  compare-elim.c, config/aarch64/aarch64-builtins.c,
+	  config/aarch64/aarch64-c.c, config/aarch64/cortex-a57-fma-steering.c,
+	  config/arc/arc.c, config/arc/arc-c.c, config/arm/arm-builtins.c,
+	  config/arm/arm-c.c, config/avr/avr.c, config/avr/avr-c.c,
+	  config/avr/avr-log.c, config/bfin/bfin.c, config/c6x/c6x.c,
+	  config/cr16/cr16.c, config/cris/cris.c, config/darwin-c.c,
+	  config/darwin.c, config/epiphany/epiphany.c,
+	  config/epiphany/mode-switch-use.c,
+	  config/epiphany/resolve-sw-modes.c, config/fr30/fr30.c,
+	  config/frv/frv.c, config/ft32/ft32.c, config/h8300/h8300.c,
+	  config/i386/i386-c.c, config/i386/winnt.c, config/iq2000/iq2000.c,
+	  config/lm32/lm32.c, config/m32c/m32c.c, config/m32r/m32r.c,
+	  config/m68k/m68k.c, config/mcore/mcore.c,
+	  config/microblaze/microblaze.c, config/mmix/mmix.c,
+	  config/mn10300/mn10300.c, config/moxie/moxie.c,
+	  config/msp430/msp430.c, config/nds32/nds32-cost.c,
+	  config/nds32/nds32-intrinsic.c, config/nds32/nds32-md-auxiliary.c,
+	  config/nds32/nds32-memory-manipulation.c,
+	  config/nds32/nds32-predicates.c, config/nds32/nds32.c,
+	  config/nios2/nios2.c, config/nvptx/nvptx.c, config/pa/pa.c,
+	  config/pdp11/pdp11.c, config/rl78/rl78.c, config/rs6000/rs6000-c.c,
+	  config/rx/rx.c, config/s390/s390-c.c, config/s390/s390.c,
+	  config/sh/sh.c, config/sh/sh-c.c, config/sh/sh-mem.cc,
+	  config/sh/sh_treg_combine.cc, config/sol2.c, config/spu/spu.c,
+	  config/stormy16/stormy16.c, config/tilegx/tilegx.c,
+	  config/tilepro/tilepro.c, config/v850/v850.c, config/vax/vax.c,
+	  config/visium/visium.c, config/vms/vms-c.c, config/xtensa/xtensa.c,
+	  coverage.c, cppbuiltin.c, cprop.c, cse.c, cselib.c, dbxout.c, dce.c,
+	  df-core.c, df-problems.c, df-scan.c, dojump.c, dse.c, dwarf2asm.c,
+	  dwarf2cfi.c, dwarf2out.c, emit-rtl.c, except.c, explow.c, expmed.c,
+	  expr.c, final.c, fold-const.c, function.c, fwprop.c, gcse.c,
+	  ggc-page.c, haifa-sched.c, hsa-brig.c, hsa-gen.c, hw-doloop.c,
+	  ifcvt.c, init-regs.c, internal-fn.c, ira-build.c, ira-color.c,
+	  ira-conflicts.c, ira-costs.c, ira-emit.c, ira-lives.c, ira.c, jump.c,
+	  loop-doloop.c, loop-invariant.c, loop-iv.c, loop-unroll.c,
+	  lower-subreg.c, lra.c, lra-assigns.c, lra-coalesce.c,
+	  lra-constraints.c, lra-eliminations.c, lra-lives.c, lra-remat.c,
+	  lra-spills.c, mode-switching.c, modulo-sched.c, omp-low.c, passes.c,
+	  postreload-gcse.c, postreload.c, predict.c, print-rtl-function.c,
+	  recog.c, ree.c, reg-stack.c, regcprop.c, reginfo.c, regrename.c,
+	  reload.c, reload1.c, reorg.c, resource.c, rtl-chkp.c, rtl-tests.c,
+	  rtlanal.c, rtlhooks.c, sched-deps.c, sched-rgn.c, sdbout.c,
+	  sel-sched-ir.c, sel-sched.c, shrink-wrap.c, simplify-rtx.c,
+	  stack-ptr-mod.c, stmt.c, stor-layout.c, target-globals.c,
+	  targhooks.c, toplev.c, tree-nested.c, tree-outof-ssa.c,
+	  tree-profile.c, tree-ssa-coalesce.c, tree-ssa-ifcombine.c,
+	  tree-ssa-loop-ivopts.c, tree-ssa-loop.c, tree-ssa-reassoc.c,
+	  tree-ssa-sccvn.c, tree-vect-data-refs.c, ubsan.c, valtrack.c,
+	  var-tracking.c, varasm.c: Include memmodel.h.
+	* genattrtab.c (write_header): Include memmodel.h in generated file.
+	* genautomata.c (main): Likewise.
+	* gengtype.c (open_base_files): Likewise.
+	* genopinit.c (main): Likewise.
+	* genconditions.c (write_header): Include memmodel.h earlier in
+	generated file.
+	* genemit.c (main): Likewise.
+	* genoutput.c (output_prologue): Likewise.
+	* genpeep.c (main): Likewise.
+	* genpreds.c (write_insn_preds_c): Likewise.
+	* genrecog.c (write_header): Likewise.
+	* Makefile.in (PLUGIN_HEADERS): Include memmodel.h
+
+2016-10-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* function-tests.c (selftest::test_expansion_to_rtl): Add "true"
+	for new "compact" param of print_rtx_function.  Check for "cinsn"
+	rather than "insn".
+	* print-rtl-function.c (flag_compact): New decl.
+	(print_rtx_function): Add param "compact" and use it to set
+	flag_compact, adding a description of the effect to the leading
+	comment, and updating the example output.
+	* print-rtl.c (flag_compact): New variable.
+	(print_rtx_operand_code_0): Omit the JUMP_LABEL reference in compact
+	mode.
+	(print_rtx_operand_code_i): When printing source locations, wrap
+	xloc.file in quotes.  Don't print INSN_CODEs in compact mode.
+	(print_rtx_operand_code_r): Don't print regnos for hard regs and
+	virtuals in compact mode.
+	(print_rtx_operand_code_u): Don't print insn UIDs in compact mode,
+	apart from in LABEL_REFs.
+	(print_rtx_operand): In case 'w', don't print in hex in compact mode.
+	Don't print basic block ids in compact mode.
+	(print_rtx):  In compact mode, prefix the code of insns with "c",
+	only print the INSN_UID of CODE_LABELs, and omit their LABEL_NUSES.
+	* print-rtl.h (print_rtx_function): Add "compact" param.
+
+2016-10-13  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.h (TARGET_VFP): Delete.
+	(TARGET_VFPD32): Remove references to TARGET_VFP.
+	(TARGET_VFP3, TARGET_VFP5): Likewise.
+	(TARGET_VFP_SINGLE, TARGET_VFP_DOUBLE): Likewise.
+	(TARGET_NEON_FP16): Likewise.
+	(TARGET_FMA): Likewise.
+	(TARGET_CRYPTO): Likewise.
+	(TARGET_NEON): Likewise.
+	(SECONDARY_OUTPUT_RELOAD_CLASS): Likewise.
+	(FUNCTION_ARG_REGNO_P): Likewise.
+	* arm.c (arm_option_check_internal): Likewise.
+	(arm_option_override): Likewise.
+	(use_return_insn): Likewise.
+	(arm_function_value_regno_p): Likewise.
+	(arm_apply_result_size): Likewise.
+	(use_vfp_abi): Likewise.
+	(arm_legitimate_address_outer_p): Likewise.
+	(thumb2_legitimate_address_p): Likewise.
+	(arm_legitimate_index_p): Likewise.
+	(thumb2_legitimate_index_p): Likewise.
+	(arm_legitimate_address): Likewise.
+	(arm_get_vfp_saved_size): Likewise.
+	(arm_emit_vfp_multi_reg_pop): Likewise.
+	(arm_get_frame_offsets): Likewise.
+	(arm_save_coproc_regs): Likewise.
+	(arm_hard_regno_mode_ok): Likewise.
+	(arm_expand_epilogue_apcs_frame): Likewise.
+	(arm_expand_epilogue): Likewise.
+	(arm_file_start): Likewise.
+	(arm_conditional_register_usage): Likewise.
+	(arm_validize_comparison): Use vfp_compare_operand directly.
+	* arm-builtins.c (arm_init_builtins): Remove references to TARGET_VFP.
+	(arm_expand_vfp_builtin): Use TARGET_HARD_FLOAT for detecting
+	unsupported usage.
+	(arm_atomic_assign_expand_fenv): Likewise.
+	* arm.md (divsf3): Likewise.
+	(arm_negsi2): Likewise.
+	(absdf2): Likewise.
+	(arm_movdi): Likewise.
+	(arm_movt): Likewise.
+	(cbranchsf4): Change predicate to vfp_compare_operand.
+	(cbranchdf4): Change predicate to vfp_compare_operand.
+	(cstorehf4): Change predicate to vfp_compare_operand.
+	(cstoresf4): Change predicate to vfp_compare_operand.
+	(cstoredf4): Change predicate to vfp_compare_operand.
+	(vfp_pop_multiple_with_writeback): Remove references to TARGET_VFP.
+	(movhi_insn_arch4, movhi_bytes): Likewise.
+	* constraints.md (Dt): Likewise.
+	(Dp): Likewise.
+	* iterators.md (SDF): Likewise.
+	* predicates.md (arm_float_compare_operand): Delete.
+	(const_double_vcvt_power_of_two_reciprocal): Remove references to
+	TARGET_VFP.
+	(const_double_vcvt_power_of_two): Likewise.
+	* thumb2.md thumb2_movsi_insn): Likewise.
+	* vfp.md (arm_movhi_vfp, thumb2_movhi_vfp): Likewise.
+	(movhf_vfp): Likewise.
+	(arm_movsi_vfp, thumb2_movsi_vfp): Likewise.
+	(movdi_vfp, movdi_vfp_cortexa8): Likewise.
+	(movsf_vfp, thumb2_movsf_vfp): Likewise.
+	(movdf_vfp, thumb2_movdf_vfp): Likewise.
+	(movsfcc_vfp, abssf2_vfp, negsf2_vfp, addsf3_vfp): Likewise.
+	(subsf3_vfp, divsf3_vfp): Likewise.
+	(mulsf3_vfp, mulsf3negsf_vfp, negmulsf3_vfp): Likewise.
+	(mulsf3addsf_vfp, (mulsf3subsf_vfp, mulsf3negsfaddsf_vfp): Likewise.
+	(mulsf3negsfsubsf_vfp): Likewise.
+	(truncsisf2_vfp, fixuns_truncsfsi2, floatsisf2_vfp): Likewise.
+	(floatunssisf2, sqrtsf2_vfp): Likewise.
+	(movcc_vfp): Likewise.
+	(cmpsf_split_vfp, cmpsf_trap_split_vfp): Likewise.
+	(cmpsf_vfp, cmpsf_trap_vfp): Likewise.
+	(push_multi_vfp): Likewise.
+	(set_fpscr, get_fpscr): Likewise.
+	* arm-c.c (arm_cpu_builtins): Unconditionally define __VFP_FP__.
+
+2016-10-13  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.h (TARGET_VFP): Unconditionally define to 1.
+	(arm_fpu_desc): Remove 'model' field.
+	(TARGET_FPU_MODEL): Delete.
+	* arm.c (all_fpus): Don't initialize the model field.
+	(arm_can_inline_p): Don't check the FPU model.
+	* arm-fpus.def: Remove redundant model field from all FPU
+	descriptions.
+
+2016-10-13  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77826
+	* genmatch.c (struct capture): Add value_match member.
+	(commutate): Preserve value_match.
+	(lower_opt_convert): Likewise.
+	(lower_cond): Likewise.
+	(replace_id): Likewise.
+	(struct dt_operand): Add value_match member.
+	(decision_tree::cmp_node): Compare it.
+	(decision_tree::insert_operand): Honor it when finding and
+	when appending a DT_MATCH.
+	(dt_operand::gen_match_op): Generate a type check after
+	operand_equal_p if ! value_match for both GENERIC and GIMPLE.
+	(parser::get_internal_capture_id): New helper.
+	(parser::finish_match_operand): New function lowering @@<id>.
+	(parser::parse_capture): Parse @@<id> as value-match.
+	(parser::parse_expr): Use get_internal_capture_id.
+	(parser::parse_simplify): Call finish_match_operand.
+	(walk_captures): New helper.
+	* match.pd (X - (X / Y) * Y -> X % Y): Use value-matching instead
+	of operand_equal_p.
+	((X /[ex] A) * A -> X): Likewise.
+	((X | Y) ^ X -> Y & ~ X): Handle constants properly by using
+	convert[12] and value-matching.
+	((A | B) & (A | C) ->  A | (B & C)): Likewise.
+	((X | Y) | Y -> X | Y): Likewise.
+	((X ^ Y) ^ Y -> X): Likewise.
+	(A - (A & B) -> ~B & A): Likewise.
+	((T)(P + A) - (T)P -> (T) A): Likewise.
+	((T)P - (T)(P + A) -> -(T) A): Likewise.
+	((T)(P + A) - (T)(P + B) -> (T)A - (T)B): Likewise.
+	* doc/match-and-simplify.texi: Amend capture section.
+
+2016-10-13  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.md (umul_600): Remove predicated variant.
+	(umul64_600): Likewise.
+
+2016-10-13  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.h (INSN_LENGTH_ALIGNMENT): Change.
+
+2016-10-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-loop.c (loop_niters_no_overflow): New func.
+	(vect_transform_loop): Call loop_niters_no_overflow.  Pass the
+	no-overflow information to vect_do_peeling_for_loop_bound and
+	vect_gen_vector_loop_niters.
+
+2016-10-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-predcom.c (tree_predictive_commoning_loop): Skip loop that only
+	iterates 1 time.
+
+2016-10-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-loop-manip.c (adjust_vec_debug_stmts): Don't release
+	adjust_vec automatically.
+	(slpeel_add_loop_guard): Remove param cond_expr_stmt_list.  Rename
+	param exit_bb to guard_to.
+	(slpeel_checking_verify_cfg_after_peeling):
+	(set_prologue_iterations):
+	(create_lcssa_for_virtual_phi): New func which is factored out from
+	slpeel_tree_peel_loop_to_edge.
+	(slpeel_tree_peel_loop_to_edge):
+	(iv_phi_p): New func.
+	(vect_can_advance_ivs_p): Call iv_phi_p.
+	(vect_update_ivs_after_vectorizer): Call iv_phi_p.  Directly insert
+	new gimple stmts in basic block.
+	(vect_do_peeling_for_loop_bound):
+	(vect_do_peeling_for_alignment):
+	(vect_gen_niters_for_prolog_loop): Rename to...
+	(vect_gen_prolog_loop_niters): ...Rename from.  Change parameters and
+	adjust implementation.
+	(vect_update_inits_of_drs): Fix code style issue.  Convert niters to
+	sizetype if necessary.
+	(vect_build_loop_niters): Move to here from tree-vect-loop.c.  Change
+	it to external function.
+	(vect_gen_scalar_loop_niters, vect_gen_vector_loop_niters): New.
+	(vect_gen_vector_loop_niters_mult_vf): New.
+	(slpeel_update_phi_nodes_for_loops): New.
+	(slpeel_update_phi_nodes_for_guard1): Reimplement.
+	(find_guard_arg, slpeel_update_phi_nodes_for_guard2): Reimplement.
+	(slpeel_update_phi_nodes_for_lcssa, vect_do_peeling): New.
+	* tree-vect-loop.c (vect_build_loop_niters): Move to file
+	tree-vect-loop-manip.c
+	(vect_generate_tmps_on_preheader): Delete.
+	(vect_transform_loop): Rename vectorization_factor to vf.  Call
+	vect_do_peeling instead of vect_do_peeling-* functions.
+	* tree-vectorizer.h (vect_do_peeling): New decl.
+	(vect_build_loop_niters, vect_gen_vector_loop_niters): New decls.
+	(vect_do_peeling_for_loop_bound): Delete.
+	(vect_do_peeling_for_alignment): Delete.
+
+2016-10-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-loop-manip.c (slpeel_tree_duplicate_loop_to_edge_cfg): Put
+	duplicated loop after its preheader and after the original loop.
+
+2016-10-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-loop.c (vect_analyze_loop_2): Check and skip loop if it
+	has no enough iterations for LOOP_VINFO_PEELING_FOR_GAPS.
+
+2016-10-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-loop.c (vectorizable_live_operation): Support handling
+	for live variable outside loop but not in lcssa form.
+
+2016-10-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* cfg.c (reset_original_copy_tables): New func.
+	* cfg.h (reset_original_copy_tables): New decl.
+
+2016-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/77946
+	* tree.h (FALLTHROUGH_LABEL_P): Use private_flag instead of
+	public_flag.
+	* varasm.c (default_binds_local_p_3): Formatting fix.
+
+2016-10-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-loop-manip.c (slpeel_can_duplicate_loop_p): Fix code
+	style issue.
+	(vect_do_peeling_for_loop_bound, vect_do_peeling_for_alignment):
+	Remove useless code.
+
+2016-10-13  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/77943
+	* tree-ssa-tail-merge.c (merge_stmts_p): Do not merge BBs with
+	a different EH landing pads.
+
+2016-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/77957
+	* hooks.h (hook_tree_void_null): Declare.
+	* hooks.c (hook_tree_void_null): New function.
+	* langhooks.c (lhd_return_null_tree_v): Remove.
+	* langhooks-def.h (lhd_return_null_tree_v): Remove.
+	* cfgexpand.c (stack_protect_prologue): If guard_decl is NULL,
+	set y to const0_rtx.
+	* function.c (stack_protect_epilogue): Likewise.
+	* config/tilepro/tilepro.c (TARGET_STACK_PROTECT_GUARD): Redefine
+	if TARGET_THREAD_SSP_OFFSET is defined.
+	* config/s390/s390.c (TARGET_STACK_PROTECT_GUARD): Likewise.
+	* config/sparc/sparc.c (TARGET_STACK_PROTECT_GUARD): Likewise.
+	* config/tilegx/tilegx.c (TARGET_STACK_PROTECT_GUARD): Likewise.
+	* config/rs6000/rs6000.c (TARGET_STACK_PROTECT_GUARD): Likewise.
+	* config/i386/i386.c (TARGET_STACK_PROTECT_GUARD): Likewise.
+	(ix86_stack_protect_guard): New function.
+
+2016-10-13  Richard Biener  <rguenther@suse.de>
+
+	* dwarf2out.c (tree_add_const_value_attribute): Do not try
+	rtl_for_decl_init during early phase.
+	(gen_variable_die): Do not create locations during early phase.
+	(gen_label_die): Likewise.
+	(decls_for_scope): Do not waste time handling BLOCK_NONLOCALIZED_VARs
+	twice.
+
 2016-10-12  Richard Biener  <rguenther@suse.de>
 
 	* tree-vrp.c (evrp_dom_walker::try_find_new_range): Renamed from
