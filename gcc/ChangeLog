@@ -1,3 +1,184 @@
+2016-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/37139
+	PR ada/67205
+	* common.opt (-ftrampolines): New option.
+	* doc/invoke.texi (Code Gen Options): Document it.
+	* doc/tm.texi.in (Trampolines): Add TARGET_CUSTOM_FUNCTION_DESCRIPTORS.
+	* doc/tm.texi: Regenerate.
+	* builtins.def: Add init_descriptor and adjust_descriptor.
+	* builtins.c (expand_builtin_init_trampoline): Do not issue a warning
+	on platforms with descriptors.
+	(expand_builtin_init_descriptor): New function.
+	(expand_builtin_adjust_descriptor): Likewise.
+	(expand_builtin) <BUILT_IN_INIT_DESCRIPTOR>: New case.
+	<BUILT_IN_ADJUST_DESCRIPTOR>: Likewise.
+	* calls.c (prepare_call_address): Remove SIBCALLP parameter and add
+	FLAGS parameter.  Deal with indirect calls by descriptor and adjust.
+	Set STATIC_CHAIN_REG_P on the static chain register, if any.
+	(call_expr_flags): Set ECF_BY_DESCRIPTOR for calls by descriptor.
+	(expand_call): Likewise.  Move around call to prepare_call_address
+	and pass all flags to it.
+	* cfgexpand.c (expand_call_stmt): Reinstate CALL_EXPR_BY_DESCRIPTOR.
+	* gimple.h (enum gf_mask): New GF_CALL_BY_DESCRIPTOR value.
+	(gimple_call_set_by_descriptor): New setter.
+	(gimple_call_by_descriptor_p): New getter.
+	* gimple.c (gimple_build_call_from_tree): SetCALL_EXPR_BY_DESCRIPTOR.
+	(gimple_call_flags): Deal with GF_CALL_BY_DESCRIPTOR.
+	* langhooks.h (struct lang_hooks): Add custom_function_descriptors.
+	* langhooks-def.h (LANG_HOOKS_CUSTOM_FUNCTION_DESCRIPTORS): Define.
+	(LANG_HOOKS_INITIALIZER): Add LANG_HOOKS_CUSTOM_FUNCTION_DESCRIPTORS.
+	* rtl.h (STATIC_CHAIN_REG_P): New macro.
+	* rtlanal.c (find_first_parameter_load): Skip static chain registers.
+	* target.def (custom_function_descriptors): New POD hook.
+	* tree.h (FUNC_ADDR_BY_DESCRIPTOR): New flag on ADDR_EXPR.
+	(CALL_EXPR_BY_DESCRIPTOR): New flag on CALL_EXPR.
+	* tree-core.h (ECF_BY_DESCRIPTOR): New mask.
+	Document FUNC_ADDR_BY_DESCRIPTOR and CALL_EXPR_BY_DESCRIPTOR.
+	* tree.c (make_node_stat) <tcc_declaration>: Use FUNCTION_ALIGNMENT.
+	(build_common_builtin_nodes): Initialize init_descriptor and
+	adjust_descriptor.
+	* tree-nested.c: Include target.h.
+	(struct nesting_info): Add 'any_descr_created' field.
+	(get_descriptor_type): New function.
+	(lookup_element_for_decl): New function extracted from...
+	(create_field_for_decl): Likewise.
+	(lookup_tramp_for_decl): ...here.  Adjust.
+	(lookup_descr_for_decl): New function.
+	(convert_tramp_reference_op): Deal with descriptors.
+	(build_init_call_stmt): New function extracted from...
+	(finalize_nesting_tree_1): ...here.  Adjust and deal withdescriptors.
+	* defaults.h (FUNCTION_ALIGNMENT): Define.
+	(TRAMPOLINE_ALIGNMENT): Set to above instead of FUNCTION_BOUNDARY.
+	* config/i386/i386.h (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): Define.
+	* config/ia64/ia64.h (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): Likewise.
+	* config/rs6000/rs6000.h (TARGET_CUSTOM_FUNCTION_DESCRIPTORS):Likewise.
+	* config/sparc/sparc.h (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): Likewise.
+
+2016-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.c (sparc_expand_vector_init): Only accept literal
+	constants in CONST_VECTORs.
+
+2016-10-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.c (sparc_expand_vec_perm_bmask): Use a scratch
+	register as destination of bmask.
+	(vector_init_bshuffle): Likewise.
+	* config/sparc/sparc.md (vec_perm_constv8qi): Likewise.
+	(bmaskdi_vis): Enable only in 64-bit mode.
+
+2016-10-15  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (rs6000_get_separate_components): Do not
+	make LR a separately shrink-wrapped component unless savres_strategy
+	contains all of {SAVE,REST}_INLINE_{GPRS,FPRS,VRS}.  Do not wrap
+	GPRs unless both {SAVE,REST}_INLINE_GPRS.  Do not disallow all
+	wrapping when not both {SAVE,REST}_INLINE_GPRS.
+
+2016-10-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* optabs.c (expand_parity): Fix mode mismatch, add final conversion
+	and keep looping on failure.
+
+2016-10-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* print-rtl-function.c (print_edge): Omit "(flags)" when none are
+	set.
+	(print_rtx_function): Update example in comment for...
+	* print-rtl.c (print_rtx_operand_code_r): In compact mode, print
+	non-virtual pseudos with a '%' sigil followed by the regno, offset
+	by (LAST_VIRTUAL_REGISTER + 1), so that the first non-virtual
+	pseudo is dumped as "%0".
+
+2016-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/77959
+	* expr.c (expand_expr_real_1) <case CONST_DECL>: For EXPAND_WRITE
+	return a MEM.
+
+2016-10-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc-passes.def: New file.
+	* config/sparc/t-sparc (PASSES_EXTRA): Add sparc-passes.def.
+	* config/sparc/sparc-protos.h (make_pass_work_around_errata): New.
+	* config/sparc/sparc.c (sparc_option_override): Don't register passes.
+
+2016-10-14  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* loop-unroll.c (unroll_loop_runtime_iterations): Condition initial
+	loop peel to loops with exit test at the beginning.
+
+2016-10-14  Pat Haugen  <pthaugen@us.ibm.com>
+
+	PR rtl-optimization/68212
+	* cfgloopmanip.c (duplicate_loop_to_header_edge): Use preheader edge
+	frequency when computing scale factor for peeled copies.
+	* loop-unroll.c (unroll_loop_runtime_iterations): Fix freq/count
+	values for switch/peel blocks/edges.
+
+2016-10-14  Pedro Alves  <palves@redhat.com>
+
+	* coretypes.h (OVERRIDE, FINAL): Delete, moved to include/ansidecl.h.
+
+2016-10-14  Catherine Moore  <clm@codesourcery.com>
+
+	* gcc/config/mips/mips.c (mips_prepare_pch_save): Initialize
+	micromips_globals to zero.
+
+2016-10-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77979
+	* tree-vrp.c (compare_name_with_value): Handle released SSA names
+	in the equivalency sets.
+	(compare_names): Likewise.
+
+2016-10-14  Martin Liska  <mliska@suse.cz>
+
+	* builtins.h(target_char_cst_p): Declare the function.
+	* builtins.c (fold_builtin_memchr): Remove.
+	(target_char_cst_p): Move the function from gimple-fold.c.
+	(fold_builtin_3): Do not call the function.
+	* gimple-fold.c (gimple_fold_builtin_memchr): New function.
+	(gimple_fold_builtin): Call the function.
+	* fold-const-call.c (fold_const_call_1): Handle CFN_BUILT_IN_MEMCHR.
+
+2016-10-14  Martin Liska  <mliska@suse.cz>
+
+	* builtins.c (fold_builtin_strcmp): Remove function.
+	(fold_builtin_strncmp): Likewise.
+	(fold_builtin_2): Remove call of the function.
+	(fold_builtin_3): Likewise.
+	* fold-const-call.c (fold_const_call): Add constant folding
+	for CFN_BUILT_IN_STRCASECMP and CFN_BUILT_IN_STRNCASECMP.
+	* fold-const-call.h (build_cmp_result): Declare the function.
+	* gimple-fold.c (gimple_load_first_char): New function.
+	(gimple_fold_builtin_string_compare): Likewise.
+	(gimple_fold_builtin): Call the function.
+
+2016-10-14  Nathan Sidwell  <nathan@acm.org>
+
+	* gcov-io.c (gcov_open): Deconstify 'mode'.
+
+2016-10-14  Martin Liska  <mliska@suse.cz>
+
+	* fold-const.c (c_getstr): Support of properly \0-terminated
+	string constants.  New argument is added.
+	* fold-const.h: New argument is added.
+
+2016-10-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_print_hint_for_core_or_arch):
+	New function.
+	(aarch64_print_hint_for_core): Likewise.
+	(aarch64_print_hint_for_arch): Likewise.
+	(aarch64_validate_march): Use it.  Fix indentation in type signature.
+	(aarch64_validate_mcpu): Use aarch64_print_hint_for_core_or_arch.
+	(aarch64_validate_mtune): Likewise.
+	(aarch64_handle_attr_arch): Likewise.
+	(aarch64_handle_attr_cpu): Likewise.
+	(aarch64_handle_attr_tune): Likewise.
+
 2016-10-14  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
 
 	* optabs.def: Remove optab function gen_int_libfunc for sdivmod_optab

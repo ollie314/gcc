@@ -196,15 +196,15 @@ func getcallersp(argp unsafe.Pointer) uintptr
 // argp used in Defer structs when there is no argp.
 const _NoArgs = ^uintptr(0)
 
-// //go:linkname time_now time.now
-// func time_now() (sec int64, nsec int32)
+//go:linkname time_now time.now
+func time_now() (sec int64, nsec int32)
 
-/*
+// For gccgo, expose this for C callers.
+//go:linkname unixnanotime runtime.unixnanotime
 func unixnanotime() int64 {
 	sec, nsec := time_now()
 	return sec*1e9 + int64(nsec)
 }
-*/
 
 // round n up to a multiple of a.  a must be a power of 2.
 func round(n, a uintptr) uintptr {
@@ -306,11 +306,6 @@ func exitsyscall(int32)
 func gopark(func(*g, unsafe.Pointer) bool, unsafe.Pointer, string, byte, int)
 func goparkunlock(*mutex, string, byte, int)
 func goready(*g, int)
-
-// Temporary for gccgo until we port mprof.go.
-var blockprofilerate uint64
-
-func blockevent(cycles int64, skip int) {}
 
 // Temporary hack for gccgo until we port proc.go.
 //go:nosplit
@@ -415,3 +410,37 @@ func startTheWorld() {
 func getMstats() *mstats {
 	return &memstats
 }
+
+// Temporary for gccgo until we port proc.go.
+func setcpuprofilerate_m(hz int32)
+
+// Temporary for gccgo until we port mem_GOOS.go.
+func sysAlloc(n uintptr, sysStat *uint64) unsafe.Pointer
+
+// Temporary for gccgo until we port proc.go, so that the C signal
+// handler can call into cpuprof.
+//go:linkname cpuprofAdd runtime.cpuprofAdd
+func cpuprofAdd(stk []uintptr) {
+	cpuprof.add(stk)
+}
+
+// For gccgo until we port proc.go.
+func Breakpoint()
+func LockOSThread()
+func UnlockOSThread()
+func allm() *m
+func allgs() []*g
+
+//go:nosplit
+func readgstatus(gp *g) uint32 {
+	return atomic.Load(&gp.atomicstatus)
+}
+
+// Temporary for gccgo until we port malloc.go
+func persistentalloc(size, align uintptr, sysStat *uint64) unsafe.Pointer
+
+// Temporary for gccgo until we port mheap.go
+func setprofilebucket(p unsafe.Pointer, b *bucket)
+
+// Currently in proc.c.
+func tracebackothers(*g)

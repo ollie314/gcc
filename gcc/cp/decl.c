@@ -68,7 +68,7 @@ static int unary_op_p (enum tree_code);
 static void push_local_name (tree);
 static tree grok_reference_init (tree, tree, tree, int);
 static tree grokvardecl (tree, tree, tree, const cp_decl_specifier_seq *,
-			 int, int, int, int, tree);
+			 int, int, int, bool, int, tree);
 static int check_static_variable_definition (tree, tree);
 static void record_unknown_type (tree, const char *);
 static tree builtin_function_1 (tree, tree, bool);
@@ -5569,7 +5569,8 @@ next_initializable_field (tree field)
   while (field
 	 && (TREE_CODE (field) != FIELD_DECL
 	     || (DECL_C_BIT_FIELD (field) && !DECL_NAME (field))
-	     || DECL_ARTIFICIAL (field)))
+	     || (DECL_ARTIFICIAL (field)
+		 && !(cxx_dialect >= cxx1z && DECL_FIELD_IS_BASE (field)))))
     field = DECL_CHAIN (field);
 
   return field;
@@ -8512,8 +8513,9 @@ grokvardecl (tree type,
 	     tree orig_declarator,
 	     const cp_decl_specifier_seq *declspecs,
 	     int initialized,
-	     int flags,
+	     int type_quals,
 	     int inlinep,
+	     bool conceptp,
 	     int template_count,
 	     tree scope)
 {
@@ -8522,8 +8524,8 @@ grokvardecl (tree type,
 
   gcc_assert (!name || identifier_p (name));
 
-  bool constp = flags&1;
-  bool conceptp = flags&2;
+  bool constp = (type_quals & TYPE_QUAL_CONST) != 0;
+  bool volatilep = (type_quals & TYPE_QUAL_VOLATILE) != 0;
 
   /* Compute the scope in which to place the variable, but remember
      whether or not that scope was explicitly specified by the user.   */
@@ -8580,6 +8582,7 @@ grokvardecl (tree type,
       TREE_PUBLIC (decl) = (declspecs->storage_class != sc_static
 			    && (DECL_THIS_EXTERN (decl)
 				|| ! constp
+				|| volatilep
 				|| inlinep));
       TREE_STATIC (decl) = ! DECL_EXTERNAL (decl);
     }
@@ -11626,8 +11629,9 @@ grokdeclarator (const cp_declarator *declarator,
 	decl = grokvardecl (type, dname, unqualified_id,
 			    declspecs,
 			    initialized,
-			    ((type_quals & TYPE_QUAL_CONST) != 0) | (2 * concept_p),
+			    type_quals,
 			    inlinep,
+			    concept_p,
 			    template_count,
 			    ctype ? ctype : in_namespace);
 	if (decl == NULL_TREE)
@@ -13150,8 +13154,8 @@ xref_basetypes (tree ref, tree base_list)
   if (max_bases)
     {
       vec_alloc (BINFO_BASE_ACCESSES (binfo), max_bases);
-      /* An aggregate cannot have baseclasses.  */
-      CLASSTYPE_NON_AGGREGATE (ref) = 1;
+      /* A C++98 POD cannot have base classes.  */
+      CLASSTYPE_NON_LAYOUT_POD_P (ref) = true;
 
       if (TREE_CODE (ref) == UNION_TYPE)
 	error ("derived union %qT invalid", ref);
@@ -13178,6 +13182,13 @@ xref_basetypes (tree ref, tree base_list)
 
       if (access == access_default_node)
 	access = default_access;
+
+      /* Before C++17, an aggregate cannot have base classes.  In C++17, an
+	 aggregate can't have virtual, private, or protected base classes.  */
+      if (cxx_dialect < cxx1z
+	  || access != access_public_node
+	  || via_virtual)
+	CLASSTYPE_NON_AGGREGATE (ref) = true;
 
       if (PACK_EXPANSION_P (basetype))
         basetype = PACK_EXPANSION_PATTERN (basetype);
