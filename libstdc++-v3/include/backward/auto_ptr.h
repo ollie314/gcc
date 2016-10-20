@@ -249,13 +249,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       /** 
        *  @brief  Automatic conversions
        *
-       *  These operations convert an %auto_ptr into and from an auto_ptr_ref
-       *  automatically as needed.  This allows constructs such as
+       *  These operations are supposed to convert an %auto_ptr into and from
+       *  an auto_ptr_ref automatically as needed.  This would allow
+       *  constructs such as
        *  @code
        *    auto_ptr<Derived>  func_returning_auto_ptr(.....);
        *    ...
        *    auto_ptr<Base> ptr = func_returning_auto_ptr(.....);
        *  @endcode
+       *
+       *  But it doesn't work, and won't be fixed. For further details see
+       *  http://cplusplus.github.io/LWG/lwg-closed.html#463
        */
       auto_ptr(auto_ptr_ref<element_type> __ref) throw()
       : _M_ptr(__ref._M_ptr) { }
@@ -307,7 +311,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       static_assert( sizeof(_Tp1) > 0, "incomplete type" );
       _Tp1* __tmp = __r.get();
       _M_refcount = __shared_count<_Lp>(std::move(__r));
-      __enable_shared_from_this_helper(_M_refcount, __tmp, __tmp);
+      _M_enable_shared_from_this_with(__tmp);
     }
 
   template<typename _Tp>
