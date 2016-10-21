@@ -1,3 +1,44 @@
+2016-10-20  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-c++-common/wdate-time.c: Restored test case.
+	* g++.dg/warn/Wconversion-real.C: Deleted empty file.
+
+2016-10-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/cpp1z/inline-var1.C (w): Initialize to 64 + 2.
+
+2016-10-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/78037
+	* gcc.target/i386/pr78037.c: New test.
+
+2016-10-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/visium/overflow8.c: New.
+	* gcc.target/visium/overflow16.c: Likewise.
+	* gcc.target/visium/overflow32: Likewise.
+
+2016-10-20  Michael Matz  <matz@suse.de>
+
+	* gcc.dg/loop-split.c: New test.
+	* gcc.dg/tree-ssa/ifc-9.c: Update.
+	* gcc.dg/tree-ssa/ifc-10.c: Update.
+
+2016-10-20  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/graphite/pr35356-1.c: Update.
+
+2016-10-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/77446
+	* g++.dg/cpp1y/pr77446.C: New.
+
+2016-10-20  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR tree-optimization/53979
+	* gcc.dg/pr53979-1.c: New test-case.
+	* gcc.dg/pr53979-2.c: Likewise.
+
 2016-10-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
 
 	* c-c++-common/Wint-in-bool-context-2.c: New test.

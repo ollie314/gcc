@@ -1,3 +1,140 @@
+2016-10-21  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_assemble_visibility): Swap "internal"
+	and "protected" in visibility types.
+	(rs6000_xcoff_declare_function_name): Fix formatting.
+	(rs6000_xcoff_declare_object_name): Fix formatting.
+
+2016-10-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_fold_builtin): Handle IX86_BUILTIN_INFQ
+	and IX86_BUILTIN_HUGE_VALQ here ...
+	(ix86_expand_builtin): ... not here.
+
+2016-10-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/gty.texi (for_user): Use @item next to @findex.
+
+2016-10-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/78037
+	* config/i386/bmiintrin.h (__tzcnt_u16): Call __builtin_ia32_tzcnt_u16.
+	(__tzcnt_u32, _tzcnt_u32): Call __builtin_ia32_tzcnt_u32.
+	(__tzcnt_u64, _tzcnt_u64): Call __builtin_ia32_tzcnt_u64.
+	* config/i386/lzcntintrin.h (__lzcnt_u16): Call
+	__builtin_ia32_lzcnt_u16.
+	(__lzcnt_u32, _lzcnt_u32): Call __builtin_ia32_lzcnt_u32.
+	(__lzcnt_u64, _lzcnt_u64): Call __builtin_ia32_lzcnt_u64.
+	* config/i386/i386.md (UNSPEC_LZCNT, UNSPEC_TZCNT): New unspecs.
+	(ctz<mode>2, *ctz<mode>2): Use SWI48 mode iterator.
+	(bmi_tzcnt_<mode>): New expander.
+	(*bmi_tzcnt_<mode>_falsedep_1): New define_insn_and_split pattern.
+	(*bmi_tzcnt_<mode>_falsedep, *bmi_tzcnt_<mode>): New insn patterns.
+	(clz<mode>2_lzcnt, *clz<mode>2_lzcnt): Use SWI48 mode iterator.
+	(lzcnt_<mode>): New expander.
+	(*lzcnt_<mode>_falsedep_1): New define_insn_and_split pattern.
+	(*lzcnt_<mode>_falsedep, *lzcnt_<mode>): New insn patterns.
+	* config/i386/i386-builtin-types.def (UINT_FTYPE_UINT): New.
+	(UINT64_FTYPE_UINT64): New.
+	* config/i386/i386-builtin.def (__builtin_clzs): Remove description.
+	(__builtin_ia32_lzcnt_u16): New description.
+	(__builtin_ia32_lzcnt_u32): Ditto.
+	(__builtin_ia32_lzcnt_u64): Ditto.
+	(__builtin_ctzs): Remove description.
+	(__builtin_ia32_tzcnt_u16): New description.
+	(__builtin_ia32_tzcnt_u32): Ditto.
+	(__builtin_ia32_tzcnt_u64): Ditto.
+	* config/i386/i386.c (ix86_expand_args_builtin): Handle
+	UINT_FTYPE_UINT and UINT64_FTYPE_UINT64.
+
+2016-10-20  Martin Liska  <mliska@suse.cz>
+
+	PR lto/78049
+	* lto-streamer-in.c (fixup_call_stmt_edges_1): Replace value
+	comparison with STMT_UID_NOT_IN_RANGE.
+	(fixup_call_stmt_edges): Do not fixup edges of a thunk in
+	LTRANS.
+
+2016-10-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* compare-elim.c (conforming_compare): Accept UNSPECs.
+	(find_comparison_dom_walker::before_dom_children): Deal with
+	instructions both using and killing the flags register.
+	(equivalent_reg_at_start): New function extracted from...
+	(try_eliminate_compare): ...here.  Use it and add support for
+	registers and UNSPECs as second operand of the compare.
+	* config/visium/visium-modes.def (CCV): New.
+	* config/visium/predicates.md (visium_v_comparison_operator): New.
+	(visium_branch_operator): Deal with CCV mode.
+	* config/visium/visium.c (visium_select_cc_mode): Likewise.
+	(output_cbranch): Likewise.
+	* config/visium/visium.md (UNSPEC_{ADD,SUB,NEG}V): New constants.
+	(uaddv<mode>4): New expander.
+	(addv<mode>4): Likewise.
+	(add<mode>3_insn_set_carry): New instruction.
+	(add<mode>3_insn_set_overflow): Likewise.
+	(addsi3_insn_set_overflow): Likewise.
+	(usubv<mode>4): New expander.
+	(subv<mode>4): Likewise.
+	(sub<mode>3_insn_set_carry): New instruction.
+	(sub<mode>3_insn_set_overflow): Likewise.
+	(subsi3_insn_set_overflow): Likewise.
+	(unegv<mode>3): New expander.
+	(negv<mode>3): Likewise.
+	(neg<mode>2_insn_set_overflow): New instruction.
+	(addv_tst<mode>): Likewise.
+	(subv_tst<mode>): Likewise.
+	(negv_tst<mode>): Likewise.
+	(cbranch<mode>4_addv_insn): New splitter and instruction.
+	(cbranch<mode>4_subv_insn): Likewise.
+	(cbranch<mode>4_negv_insn): Likewise.
+
+2016-10-20  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (ptrs_compare_unequal): Remove code duplication.
+	Handle decls possibly not bound.
+	* tree-ssa-structalias.c (get_constraint_for_ssa_var): Add
+	nothing_id for decls that might not be bound if we are interested
+	for the address.
+	(get_constraint_for_component_ref): Deal with that.
+
+2016-10-20  Michael Matz  <matz@suse.de>
+
+	Loop splitting.
+	* common.opt (-fsplit-loops): New flag.
+	* passes.def (pass_loop_split): Add.
+	* opts.c (default_options_table): Add OPT_fsplit_loops entry at -O3.
+	(enable_fdo_optimizations): Add loop splitting.
+	* timevar.def (TV_LOOP_SPLIT): Add.
+	* tree-pass.h (make_pass_loop_split): Declare.
+	* tree-ssa-loop-manip.h (rewrite_into_loop_closed_ssa_1): Declare.
+	* tree-ssa-loop-unswitch.c: Include tree-ssa-loop-manip.h,
+	* tree-ssa-loop-split.c: New file.
+	* Makefile.in (OBJS): Add tree-ssa-loop-split.o.
+	* doc/invoke.texi (fsplit-loops): Document.
+	* doc/passes.texi (Loop optimization): Add paragraph about loop
+	splitting.
+
+2016-10-20  Richard Biener  <rguenther@suse.de>
+
+	* cgraphunit.c (analyze_functions): Set node->definition to
+	false to signal symbol removal to debug_hooks->late_global_decl.
+	* ipa.c (symbol_table::remove_unreachable_nodes): When not in
+	WPA signal symbol removal to the debuginfo machinery.
+	* dwarf2out.c (dwarf2out_late_global_decl): Instead of
+	using early_finised to guard the we're called for symbol
+	removal case look at the symtabs definition flag.
+	(gen_variable_die): Remove redundant check.
+
+2016-10-20  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("prefetch"): Add fallthrough comment.
+
+2016-10-20  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR tree-optimization/53979
+	* match.pd ((a ^ b) | a -> a | b): New pattern.
+
 2016-10-19  John David Anglin  <danglin@gcc.gnu.org>
 
 	* config/pa/pa64-hpux.h (PA_INIT_FRAME_DUMMY_ASM_OP): Move to
