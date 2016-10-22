@@ -1,3 +1,224 @@
+2016-10-21  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64-cores.def: Rewrite so IMP and PART are
+	integer constants.
+	* config/aarch64/driver-aarch64.c (struct aarch64_core_data): Change
+	implementer_id to unsigned char.
+	Change part_no to unsigned int.
+	(AARCH64_BIG_LITTLE): New define.
+	(INVALID_IMP): New define.
+	(INVALID_CORE): New define.
+	(cpu_data): Change the last element's implementer_id and part_no to
+	integers.
+	(valid_bL_string_p): Rewrite to ..
+	(valid_bL_core_p): this for integers instead of strings.
+	(parse_field): New function.
+	(contains_string_p): Rewrite to ...
+	(contains_core_p): this for integers and only for the part_no.
+	(host_detect_local_cpu): Rewrite handling of implementation and
+	par num to be integers; simplifying the code.
+
+2016-10-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* ipa-prop.c (ipa_compute_jump_functions_for_edge): Create nonzero
+	value range for pointers in more cases.
+
+2016-10-21  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_add_constant_internal):
+	Add extra argument to allow emitting the move immediate.
+	Use add/sub with positive immediate.
+	(aarch64_add_constant): Add inline function.
+	(aarch64_add_sp): Likewise.
+	(aarch64_sub_sp): Likewise.
+	(aarch64_expand_prologue): Call aarch64_sub_sp.
+	(aarch64_expand_epilogue): Call aarch64_add_sp.
+	Decide when to leave out move.
+	(aarch64_output_mi_thunk): Call aarch64_add_constant.
+
+2016-10-21  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_layout_frame):
+	Align FP callee-saves.
+
+2016-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/adxintrin.h (_subborrow_u32, _addcarry_u32,
+	_addcarryx_u32, _subborrow_u64, _addcarry_u64, _addcarryx_u64):
+	Formatting fixes.
+	* config/i386/rdseedintrin.h (_rdseed16_step, _rdseed32_step,
+	_rdseed64_step): Likewise.
+	* config/i386/tbmintrin.h (__bextri_u32): Likewise.
+
+	PR target/78057
+	* config/i386/i386.c: Include fold-const-call.h, tree-vrp.h
+	and tree-ssanames.h.
+	(ix86_fold_builtin): Fold IX86_BUILTIN_[LT]ZCNT{16,32,64}
+	with INTEGER_CST argument.
+	(ix86_gimple_fold_builtin): New function.
+	(TARGET_GIMPLE_FOLD_BUILTIN): Define.
+
+	* dwarf2out.c (ranges_table): Change into vec<dw_ranges, va_gc> *.
+	(ranges_by_label): Change into vec<dw_ranges_by_label, va_gc> *.
+	(ranges_table_allocated, ranges_table_in_use,
+	ranges_by_label_allocated, ranges_by_label_in_use,
+	RANGES_TABLE_INCREMENT): Removed.
+	(add_ranges_num): Use vec_safe_push into ranges_table.
+	(add_ranges_by_labels): Use vec_safe_push into ranges_by_label.
+	(output_ranges): Adjust for ranges_table and ranges_by_label
+	conversion from arrays to vec.
+	(add_high_low_attributes, dwarf2out_finish): Adjust for range_table
+	conversion from arrays to vec.
+	(dwarf2out_c_finalize): Don't clear ranges_table_allocated,
+	ranges_table_in_use, ranges_by_label_allocated and
+	ranges_by_label_in_use.  Set ranges_by_label to NULL instead of 0.
+
+	* dwarf2out.c (gen_variable_die): Emit DW_AT_const_expr attribute
+	if needed.  Re-add origin_die variable and its initialization.
+
+	* gimplify.c (gimplify_bind_expr): Handle oacc_declare_returns
+	even for -fstack-reuse=none, or for volatile vars etc.
+
+2016-10-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* print-rtl-function.c (flag_compact): Move extern decl to...
+	* print-rtl.h (flag_compact): ...here.
+	* rtl-tests.c (selftests::assert_rtl_dump_eq): New function.
+	(ASSERT_RTL_DUMP_EQ): New macro.
+	(selftest::test_dumping_regs): New function.
+	(selftest::test_dumping_insns): New function.
+	(selftest::test_uncond_jump): Add uses of ASSERT_RTL_DUMP_EQ on
+	the insns.
+	(selftest::rtl_tests_c_tests): Call the new test functions.
+
+2016-10-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* cfgcleanup.c (merge_blocks_move_successor_nojumps): Adjust.
+	(outgoing_edges_match): Likewise.
+	(try_crossjump_to_edge): Likewise.
+	* cfgrtl.c (try_redirect_by_replacing_jump): Likewise.
+	(rtl_tidy_fallthru_edge): Likewise.
+	* rtl.h (tablejump_p): Adjust prototype.
+	* rtlanal.c (tablejump_p): Return the label as a rtx_insn *.
+
+2016-10-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* rtl.h (label_ref_label): New function.
+	(set_label_ref_label): New function.
+	(LABEL_REF_LABEL): Delete.
+	* alias.c (rtx_equal_for_memref_p): Adjust.
+	* cfgbuild.c (make_edges): Likewise.
+	(purge_dead_tablejump_edges): Likewise.
+	* cfgexpand.c (convert_debug_memory_address): Likewise.
+	* cfgrtl.c (patch_jump_insn): Likewise.
+	* combine.c (distribute_notes): Likewise.
+	* cse.c (hash_rtx_cb): Likewise.
+	(exp_equiv_p): Likewise.
+	(fold_rtx): Likewise.
+	(check_for_label_ref): Likewise.
+	* cselib.c (rtx_equal_for_cselib_1): Likewise.
+	(cselib_hash_rtx): Likewise.
+	* emit-rtl.c (mark_label_nuses): Likewise.
+	* explow.c (convert_memory_address_addr_space_1): Likewise.
+	* final.c (output_asm_label): Likewise.
+	(output_addr_const): Likewise.
+	* gcse.c (add_label_notes): Likewise.
+	* genconfig.c (walk_insn_part): Likewise.
+	* genrecog.c (validate_pattern): Likewise.
+	* ifcvt.c (cond_exec_get_condition): Likewise.
+	(noce_emit_store_flag): Likewise.
+	(noce_get_alt_condition): Likewise.
+	(noce_get_condition): Likewise.
+	* jump.c (maybe_propagate_label_ref): Likewise.
+	(mark_jump_label_1): Likewise.
+	(redirect_exp_1): Likewise.
+	(rtx_renumbered_equal_p): Likewise.
+	* lra-constraints.c (operands_match_p): Likewise.
+	* print-rtl.c (print_value): Likewise.
+	* reload.c (find_reloads): Likewise.
+	* reload1.c (set_label_offsets): Likewise.
+	* reorg.c (get_branch_condition): Likewise.
+	* rtl-tests.c (test_uncond_jump): Likewise.
+	* rtl.c (rtx_equal_p_cb): Likewise.
+	(rtx_equal_p): Likewise.
+	* rtlanal.c (reg_mentioned_p): Likewise.
+	(rtx_referenced_p): Likewise.
+	(get_condition): Likewise.
+	* varasm.c (const_hash_1): Likewise.
+	(compare_constant): Likewise.
+	(const_rtx_hash_1): Likewise.
+	(output_constant_pool_1): Likewise.
+
+2016-10-21  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	PR target/71627
+	* reload.c (find_valid_class_1): Allow regclass if atleast one
+	regno in regclass is ok. Compute and use rclass size based on
+	actually available regnos for mode in rclass.
+
+2016-10-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc-modes.def (CCV): New.
+	(CCXV): Likewise.
+	* config/sparc/predicates.md (v_comparison_operator): New.
+	(icc_comparison_operator): Add support for CCV/CCXV.
+	(xcc_comparison_operator): Likewise.
+	* config/sparc/sparc.c (output_cbranch): Likewise.
+	(sparc_print_operand): Likewise.
+	* config/sparc/sparc.md (UNSPEC_{ADD,SUB,NEG}V): New constants.
+	(uaddvdi4): New expander.
+	(addvdi4): Likewise.
+	(uaddvdi4_sp32): New instruction.
+	(addvdi4_sp32): Likewise.
+	(uaddvsi4): New expander.
+	(addvsi4): Likewise.
+	(cmp_ccc_plus_sltu_set): New instruction.
+	(cmp_ccv_plus): Likewise.
+	(cmp_ccxv_plus): Likewise.
+	(cmp_ccv_plus_set): Likewise.
+	(cmp_ccxv_plus_set): Likewise.
+	(cmp_ccv_plus_sltu_set): Likewise.
+	(uaddvdi4): New expander.
+	(subvdi4): Likewise.
+	(usubdi4_sp32): New instruction.
+	(subvdi4_sp32): Likewise.
+	(usubvsi4): New expander.
+	(subvsi4): Likewise.
+	(cmpsi_minus_sltu_set): New instruction.
+	(cmp_ccv_minus): Likewise.
+	(cmp_ccxv_minus): Likewise.
+	(cmp_ccv_minus_set): Likewise.
+	(cmp_ccxv_minus_set): Likewise.
+	(cmp_ccv_minus_sltu_set): Likewise.
+	(unegvdi3): New expander.
+	(negvdi3): Likewise.
+	(unegdi3_sp32): New instruction.
+	(negvdi3_sp32): Likewise.
+	(unegvsi3): New expander.
+	(negvsi3): Likewise.
+	(cmp_ccc_neg_sltu_set): New instruction.
+	(cmp_ccv_neg): Likewise.
+	(cmp_ccxv_neg): Likewise.
+	(cmp_ccv_neg_set): Likewise.
+	(cmp_ccxv_neg_set): Likewise.
+	(cmp_ccv_neg_sltu_set): Likewise.
+
+	* tree-ssa-loop-split.c: Remove trailing spaces.
+	* match.pd: Likewise.
+
+2016-10-21  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/78038
+	* ree.c (get_defs): Return NULL if a defining insn for REG cannot
+	be deduced to set REG through the RTL structure.
+	(make_defs_and_copies_lists): Return false on a failing get_defs call.
+
+2016-10-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78051
+	* tree-vrp.c (evrp_dom_walker::before_dom_children): Update stmt
+	and mark replaced if folding did something.
+
 2016-10-21  David Edelsohn  <dje.gcc@gmail.com>
 
 	* config/rs6000/rs6000.c (rs6000_assemble_visibility): Swap "internal"
