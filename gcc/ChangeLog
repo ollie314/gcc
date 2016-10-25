@@ -1,3 +1,93 @@
+2016-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (gen_subprogram_die): Add DW_AT_reference or
+	DW_AT_rvalue_reference attributes.
+
+2016-10-24  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* doc/invoke.text (Wint-in-bool-context): Update documentation.
+	* value-prof.c (stringop_block_profile): Fix a warning.
+
+2016-10-24  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/77735
+	* builtins.c (string_length): New function.
+	(c_strlen): Use string_length.  Correctly handle wide strings.
+	* gimple-ssa-sprintf.c (target_max_value, target_size_max): New
+	functions.
+	(target_int_max): Call target_max_value.
+	(format_result::knownrange): New data member.
+	(fmtresult::fmtresult): Define default constructor.
+	(format_integer): Use it and set format_result::knownrange.
+	Handle global constants.
+	(format_floating_max): Add third argument.
+	(format_floating): Recompute maximum value for %a for each argument.
+	(get_string_length): Use fmtresult default ctor.
+	(format_string): Set format_result::knownrange.
+	(format_directive): Check format_result::knownrange.
+	(add_bytes): Same.  Correct caret placement in diagnostics.
+	(pass_sprintf_length::compute_format_length): Set
+	format_result::knownrange.
+	(pass_sprintf_length::handle_gimple_call): Use target_size_max.
+
+2016-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_in_large_data_p, ix86_expand_builtin): Use
+	VAR_P (x) instead of TREE_CODE (x) == VAR_DECL.
+
+2016-10-24  Ximin Luo  <infinity0@pwned.gg>
+
+	PR debug/77985
+	* dwarf2out.c (file_table_relative_p): Remove.
+	(gen_compile_unit_die, dwarf2out_early_finish): Emit DW_AT_comp_dir
+	also for absolute paths.
+	* doc/tm.texi: Update.
+	* doc/tm.texi.in (SDB and DWARF) <TARGET_FORCE_AT_COMP_DIR>: Remove.
+	* target.def (force_at_comp_dir): Remove hook.
+	* config/darwin.h (TARGET_FORCE_AT_COMP_DIR): Remove define.
+
+2016-10-24  Richard Biener  <rguenther@suse.de>
+
+	* tree-vrp.c (evrp_dom_walker::before_dom_children): Ignore
+	backedges when identifying the single predecessor to take
+	conditional info from.  Use SCEV to get at ranges for loop IVs.
+	* lto-streamer-out.c (lto_write_mode_table): CSE inner mode to
+	avoid false warning.
+
+2016-10-24  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/78093
+	* doc/extend.texi (AVR Variable Attributes) [absdata]: Document it.
+	* config/avr/avr.c (AVR_SYMBOL_FLAG_TINY_ABSDATA): New macro.
+	(avr_address_tiny_absdata_p): New static function.
+	(avr_legitimate_address_p, avr_legitimize_address) [AVR_TINY]: Use
+	it to determine validity of constant addresses.
+	(avr_attribute_table) [absdata]: New variable attribute...
+	(avr_handle_absdata_attribute): ...and handler.
+	(avr_decl_absdata_p): New static function.
+	(avr_encode_section_info) [AVR_TINY]: Use it to add flag
+	AVR_SYMBOL_FLAG_TINY_ABSDATA to respective symbols_refs.
+	(avr_address_cost) [AVR_TINY]: absdata addresses cost 2.
+
+2016-10-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78076
+	* tree-ssa-loop-split.c (tree_ssa_split_loops): Reset aux
+	also on the loop tree root.
+
+2016-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_fold_builtin): Handle
+	IX86_BUILTIN_BEXTR{,I}{32,64}, IX86_BUILTIN_BZHI{32,64},
+	IX86_BUILTIN_PDEP{32,64} and IX86_BUILTIN_PEXT{32,64}.
+	(ix86_gimple_fold_builtin): Handle IX86_BUILTIN_BZHI{32,64},
+	IX86_BUILTIN_PDEP{32,64} and IX86_BUILTIN_PEXT{32,64}.
+
+2016-10-24  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/77966
+	* opts.c (finish_options): Skip conditionally.
+
 2016-10-23  Martin Sebor  <msebor@redhat.com>
 
 	PR target/77837

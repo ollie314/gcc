@@ -1,3 +1,78 @@
+2016-10-24  Kugan Vivekanandarajah  <kuganvi@linaro.org>
+
+	* gcc.target/aarch64/test_frame_common.h: Add noclone attribute
+	such that cloned verions of tested functions are not created.
+
+2016-10-24  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71895
+	* gfortran.dg/pr71895.f90: New test.
+
+2016-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/debug/dwarf2/ref-2.C: New test.
+
+2016-10-24  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-c++-common/Wint-in-bool-context-3.c: New test.
+
+2016-10-24  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/77735
+	* gcc.dg/tree-ssa/builtin-sprintf-2.c: Add test cases.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Same.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-2.c: Same.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-3.c: Adjust/relax.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-4.c: Add test cases.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-6.c: XFAIL for LP64 only.
+	* gcc.dg/tree-ssa/builtin-sprintf.c: Add test cases.
+
+2016-10-24  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/71491
+	* gcc.dg/vect/slp-43.c: Adjust for !vect_hw_misalign.
+	* gcc.dg/vect/slp-45.c: Likewise.
+
+2016-10-24  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/cunroll-13.c: Disable EVRP.
+	* gcc.dg/tree-ssa/pr21458.c: Likewise.
+	* gcc.dg/tree-ssa/pr21458-2.c: New testcase for EVRP.
+
+2016-10-24  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/78093
+	* lib/target-supports.exp (check_effective_target_avr_tiny): New proc.
+	* gcc.target/avr/torture/tiny-absdata-1.c: New test.
+
+2016-10-24  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* gcc.target/arm/pure-code/pure-code.exp: Restore saved globals.
+
+2016-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/bmi2-pext-1.c: New test.
+	* gcc.target/i386/bmi2-pdep-1.c: New test.
+	* gcc.target/i386/bmi2-bzhi-3.c: New test.
+	* gcc.target/i386/tbm-bextri-1.c: New test.
+	* gcc.target/i386/bmi-bextr-6.c: New test.
+
+2016-10-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/77483
+	* gcc.target/i386/mask-unpack.c (dg-options): Add -mno-stackrealign.
+	* gcc.target/i386/pr65105-1.c: Likewise.
+	* gcc.target/i386/pr65105-2.c: Likewise.
+	* gcc.target/i386/pr65105-3.c: Likewise.
+	* gcc.target/i386/pr65105-5.c: Likewise.
+	* gcc.target/i386/pr67761.c: Likewise.
+	* gcc.target/i386/pr70799-1.c: Likewise.
+
+2016-10-24  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/77966
+	* c-c++-common/ubsan/unreachable-3.c: New test.
+
 2016-10-23  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/77763
