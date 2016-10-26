@@ -158,6 +158,7 @@ gfc_get_ultimate_alloc_ptr_comps_caf_token (gfc_se *outerse, gfc_expr *expr)
 #define VTABLE_DEF_INIT_FIELD 3
 #define VTABLE_COPY_FIELD 4
 #define VTABLE_FINAL_FIELD 5
+#define VTABLE_DEALLOCATE_FIELD 6
 
 
 tree
@@ -300,6 +301,7 @@ VTAB_GET_FIELD_GEN (extends, VTABLE_EXTENDS_FIELD)
 VTAB_GET_FIELD_GEN (def_init, VTABLE_DEF_INIT_FIELD)
 VTAB_GET_FIELD_GEN (copy, VTABLE_COPY_FIELD)
 VTAB_GET_FIELD_GEN (final, VTABLE_FINAL_FIELD)
+VTAB_GET_FIELD_GEN (deallocate, VTABLE_DEALLOCATE_FIELD)
 
 
 /* The size field is returned as an array index type.  Therefore treat
@@ -860,7 +862,7 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
     {
       ctree = gfc_class_len_get (var);
       /* When the actual arg is a char array, then set the _len component of the
-       unlimited polymorphic entity, too.  */
+	 unlimited polymorphic entity to the length of the string.  */
       if (e->ts.type == BT_CHARACTER)
 	{
 	  /* Start with parmse->string_length because this seems to be set to a
