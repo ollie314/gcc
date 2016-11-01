@@ -1,3 +1,274 @@
+2016-10-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (VSX_EXTRACT_FL): New iterator for all
+	binary floating point types supported by the hardware except for
+	double.
+	(vsx_xvcvsxwdp_df): Provide scalar result alternative to the
+	vector instruction for optimizing extracting a SImode from a
+	V4SImode vector and converting it to floating point.
+	(vsx_xvcvuxwdp_df): Likewise.
+	(vsx_extract_si): On ISA 3.0, allow extract target and temporary
+	registers to be any VSX register.  Move stores to the end of the
+	constraints.
+	(vsx_extract_si_<uns>float_df): New combiner pattern and splitter
+	to optimize extracting a SImode from a V4SImode vector and
+	converting it to a binary floating point type supported by the
+	hardware.  Use the vector converts instead of extracting the
+	element, sign extending it, and then converting it to double.
+	Other floating point types  than double first convert to double,
+	then the double is converted to that type.
+	(vsx_extract_si_<uns>float_<mode>): Likewise.
+
+2016-10-31  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/driver-aarch64.c (host_detect_local_cpu):
+	Rewrite handling of part num to handle the case where
+	multiple implementers share the same part num.
+
+2016-10-31  Jan Kratochvil  <jan.kratochvil@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (DWARF_COMPILE_UNIT_HEADER_SIZE): Adjust for -gdwarf-5.
+	(DWARF_COMDAT_TYPE_UNIT_HEADER_SIZE): Likewise.
+
+2016-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (dwarf_AT): Handle DW_AT_dwo_name.
+	(use_debug_types): Adjust comment for DWARF5 DW_UT_type units.
+	(new_die): Handle DW_TAG_skeleton_unit like DW_TAG_compile_unit.
+	(is_cu_die, is_unit_die): Likewise.
+	(should_move_die_to_comdat, break_out_comdat_types): Adjust
+	comments for DWARF5 DW_UT_type units.
+	(output_compilation_unit_header): Add UT argument, output
+	start of DWARF5 .debug_info section header.
+	(output_comp_unit): Add dwo_id argument.  Adjust
+	output_compilation_unit_header caller, for DW_UT_split_compile
+	emit dwo_id field, otherwise padding1.  Emit padding2 field.
+	(add_top_level_skeleton_die_attrs): Add DW_AT_dwo_name
+	rather than DW_AT_GNU_dwo_name attr for -gdwarf-5.
+	(output_skeleton_debug_sections): Add dwo_id argument, for
+	-gdwarf-5 emit DWARF 5 DW_UT_skeleton header.
+	(output_comdat_type_unit): For -gdwarf-5 emit .debug_info
+	DW_UT_type or DW_UT_split_type units rather than .debug_types.
+	(dwarf2out_finish): Use DW_TAG_skeleton_unit rather than
+	DW_TAG_compile_unit for skeleton unit die.  Don't add
+	DW_AT_GNU_dwo_id attributes for -gdwarf-5, instead pass checksum
+	address to output_comp_unit and output_skeleton_debug_sections.
+
+	* dwarf2out.c (debug_line_str_section): New variable.
+	(debug_line_str_hash): Likewise.
+	(DEBUG_LINE_STR_SECTION): Define.
+	(set_indirect_string): Handle DW_FORM_line_strp like
+	DW_FORM_strp.
+	(find_string_form): Fix up formatting.
+	(size_of_die): Handle DW_FORM_line_strp like DW_FORM_strp.
+	Fix up indentation.
+	(output_die): Handle DW_FORM_line_strp.
+	(DWARF5_USE_DEBUG_LINE_STR): Define.
+	(output_line_string): New function.
+	(output_file_names): Add -gdwarf-5 support.
+	(output_line_info): Likewise.
+	(init_sections_and_labels): Initialize debug_line_str_section.
+	(output_indirect_string): Change 2nd argument from void *
+	to enum dwarf_form form, compare with form rather than
+	DW_FORM_strp.
+	(output_indirect_strings): Pass DW_FORM_strp to
+	output_indirect_string traversion.
+	(dwarf2out_finish): Output .debug_line_str strings.
+	(dwarf2out_c_finalize): Clear debug_line_str_section and
+	debug_line_str_hash.
+
+2016-10-31  Tom Tromey  <tom@tromey.com>
+
+	PR debug/77315
+	* dwarf2out.c (mem_loc_descriptor): Use DW_OP_form_tls_address.
+	(resolve_args_picking_1): Move DW_OP_form_tls_address case next to
+	DW_OP_GNU_push_tls_address case.
+	(loc_list_from_tree_1): Use DW_OP_form_tls_address.
+
+2016-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.h (struct dw_loc_descr_node): Adjust comment
+	for frame_offset_rel bit.
+	(struct array_descr_info): Add rank field.
+	* dwarf2out.c (struct loc_descr_context): Add placeholder_arg
+	and placeholder_seen fields.
+	(resolve_args_picking_1): Handle also frame_offset_rel DW_OP_dup
+	and DW_OP_over.  Optimize DW_OP_pick 0 into DW_OP_dup and
+	DW_OP_pick 1 into DW_OP_over.
+	(function_to_dwarf_procedure, type_byte_size, field_byte_offset,
+	gen_variant_part): Clear placeholder_{arg,seen}.
+	(loc_list_from_tree_1): Drop const from context argument.
+	Handle integral PLACEHOLDER_EXPR if context->placeholder_arg.
+	(loc_list_for_address_of_addr_expr_of_indirect_ref,
+	loc_list_from_tree, loc_descriptor_from_tree): Drop const from
+	context argument.
+	(add_scalar_info): Drop const from context argument.  Handle
+	context->placeholder_arg.
+	(add_bound_info): Drop const from context argument.
+	(gen_descr_array_type_die): Drop const from ctx variable.
+	Initialize placeholder_arg and placeholder_seen.  Add DW_AT_rank
+	attribute and use a single DW_TAG_generic_subrange instead of
+	7 DW_TAG_subrange_type for assumed rank arrays.
+
+	* dwarf2out.h (enum dw_val_class): Add dw_val_class_loclistsptr.
+	* dwarf2out.c (struct dw_loc_list_struct): Change emitted field
+	from bool to 1-bit uchar bitfield.  Add num_assigned and
+	offset_emitted bitfields.
+	(dw_val_equal_p): Compare v.val_lbl_id rather than v.val_unsigned
+	for dw_val_class_lineptr and dw_val_class_macptr.  Handle
+	dw_val_class_loclistsptr.
+	(new_addr_loc_descr): Fix up formatting.
+	(DEBUG_LOCLISTS_SECTION, DEBUG_DWO_LOCLISTS_SECTION): Define.
+	(add_AT_low_high_pc): Fix up formatting.
+	(add_AT_loclistsptr): New function.
+	(AT_lbl): Allow dw_val_class_loclistsptr.
+	(print_dw_val, attr_checksum, attr_checksum_ordered, same_dw_val_p):
+	Handle dw_val_class_loclistsptr.
+	(loc_list_idx): New variable.
+	(output_loclists_offsets, assign_location_list_indexes): New
+	functions.
+	(size_of_die): For dw_val_class_loc_list -gsplit-dwarf -gdwarf-5
+	add size_of_uleb128 of the index.  Drop never used
+	dwarf_split_debug_info AT_index handling.  Handle
+	dw_val_class_loclistsptr.
+	(value_format): Return DW_FORM_loclistsx for dw_val_class_loc_list
+	if -gsplit-dwarf -gdwarf-5.  Handle dw_val_class_loclistsptr.
+	(output_loc_list): Handle DWARF 5 .debug_loclists* format.
+	(output_loc_list_offset): Handle -gsplit-dwarf -gdwarf-5
+	DW_FORM_loclistx indexes.
+	(output_attr_index_or_value): Fix up formatting.  Don't handle
+	dw_val_class_loc_list here.
+	(output_die): Formatting fixes.  Handle dw_val_class_loclistsptr.
+	For dw_val_class_loc_list call output_loc_list_offset rather than
+	output_attr_index_or_value.
+	(init_sections_and_labels): For -gdwarf-5 use .debug_loclists
+	or .debug_loclists.dwo section name for debug_loc_section.
+	(resolve_addr_in_expr): Formatting fix.
+	(index_location_lists): Likewise.
+	(dwarf2out_finish): If there are any location lists, for
+	-gsplit-dwarf -gdwarf-5 add DW_AT_loclists_base attribute.  Call
+	index_location_lists only if have_location_lists.  Call
+	assign_location_list_indexes for -gsplit-dwarf -gdwarf-5.  Emit
+	.debug_loclists{,.dwo} section header for -gdwarf-5, for -gdwarf-5
+	-gsplit-dwarf also emit offset table.
+
+	* dwarf2out.c (DWARF_LARGEST_DATA_FORM_BITS): Define.
+	(size_of_die, value_format, output_die): Use
+	DW_FORM_data16 for 128-bit dw_val_class_const_double or
+	dw_val_class_wide_int.
+
+	* dwarf2out.c (dwarf_op): Renamed to ...
+	(dwarf_OP): ... this.
+	(convert_descriptor_to_mode, scompare_loc_descriptor,
+	minmax_loc_descriptor, typed_binop, mem_loc_descriptor,
+	implicit_ptr_descriptor, optimize_one_addr_into_implicit_ptr): Adjust
+	callers.
+	(dwarf_AT, dwarf_TAG): New functions.
+	(check_die): Disallow DW_AT_call_all_calls next to
+	DW_AT_GNU_all_call_sites.
+	(gen_call_site_die): Use dwarf_TAG and dwarf_AT with DWARF 5 tag
+	and attributes instead of the corresponding GNU tag and attributes.
+	(gen_subprogram_die): Likewise.  Emit call site information even
+	for -gdwarf-5 -gstrict-dwarf.  Replace DW_AT_GNU_defaulted with
+	DW_AT_defaulted in comment.
+	(resolve_addr): Handle DW_AT_call_origin attribute on
+	DW_TAG_call_site DIE like DW_AT_abstract_origin on
+	DW_TAG_GNU_call_site DIE.
+
+	* dwarf2out.c (dwarf_op): New function.
+	(size_of_loc_descr): Handle DW_OP_{implicit_pointer,entry_value},
+	DW_OP_{const,regval,deref}_type and DW_OP_{convert,reinterpret}.
+	(output_loc_operands, output_loc_operands_raw): Likewise.
+	(resolve_args_picking_1, prune_unused_types_walk_loc_descr,
+	mark_base_types, hash_loc_operands, compare_loc_operands): Likewise.
+	(resolve_addr_in_expr): Likewise.  Only punt for !dwarf_strict
+	if dwarf_version < 5.
+	(convert_descriptor_to_mode): Use dwarf_op (DW_OP_xxx) instead of
+	DW_OP_GNU_xxx.
+	(scompare_loc_descriptor, ucompare_loc_descriptor,
+	minmax_loc_descriptor, typed_binop, mem_loc_descriptor,
+	implicit_ptr_descriptor, optimize_one_addr_into_implicit_ptr,
+	optimize_location_into_implicit_ptr): Likewise.  Only punt for
+	!dwarf_strict if dwarf_version < 5.
+	(string_cst_pool_decl): Adjust comment.
+	(non_dwarf_expression): Handle DW_OP_implicit_pointer.
+
+	* dwarf2out.h (enum dw_val_class): Add dw_val_class_const_implicit,
+	dw_val_class_unsigned_const_implicit and dw_val_class_file_implicit.
+	(struct dw_val_node): Add val_file_implicit field.
+	* dwarf2out.c (dw_val_equal_p, print_dw_val, attr_checksum,
+	attr_checksum_ordered, same_dw_val_p, size_of_die, value_format,
+	output_die): Handle dw_val_class_const_implicit,
+	dw_val_class_unsigned_const_implicit and dw_val_class_file_implicit.
+	(abbrev_die_table): Change into va_gc vec.
+	(abbrev_die_table_allocated, abbrev_die_table_in_use,
+	ABBREV_DIE_TABLE_INCREMENT): Remove.
+	(AT_int, AT_unsigned, AT_file): Allow dw_val_class_*_implicit.
+	(abbrev_opt_start, abbrev_usage_count, sorted_abbrev_dies): New
+	variables.
+	(build_abbrev_table): Adjust for abbrev_die_table being a va_gc vec.
+	If abbrev_opt_start, fill in abbrev_usage_count and abbrev_dies
+	vectors.
+	(die_abbrev_cmp, optimize_implicit_const, optimize_abbrev_table): New
+	functions.
+	(output_die_abbrevs): For DW_FORM_implicit_const emit sleb128 with
+	the implicit value.
+	(output_abbrev_section): Adjust for abbrev_die_table being a va_gc
+	vec.
+	(output_comp_unit): Initialize abbrev_opt_start if emitting the main
+	unit.  Call optimize_abbrev_table.
+	(dwarf2out_init, dwarf2out_finish, dwarf2out_c_finalize): Adjust for
+	abbrev_die_table being a va_gc vec.
+
+	PR tree-optimization/77860
+	* tree-ssa-reassoc.c (eliminate_using_constants): Handle
+	also integral complex and vector constants.
+
+	* dwarf2out.c (dwarf2out_define, dwarf2out_undef, output_macinfo_op,
+	optimize_macinfo_range, save_macinfo_strings): Replace
+	DW_MACRO_GNU_* constants with corresponding DW_MACRO_* constants.
+	(output_macinfo): Likewise.  Emit .debug_macro* rather than
+	.debug_macinfo* even for -gstrict-dwarf -gdwarf-5.
+	(init_sections_and_labels): Use .debug_macro* labels rather than
+	.debug_macinfo* labels even for -gstrict-dwarf -gdwarf-5.
+	(dwarf2out_finish): Use DW_AT_macros instead of DW_AT_macro_info
+	or DW_AT_GNU_macros for -gdwarf-5.
+
+2016-10-31  Waldemar Brodkorb  <wbx@openadk.org>
+
+	* config/microblaze/linux.h (UCLIBC_DYNAMIC_LINKER): Define.
+
+2016-09-11  Le-Chun Wu  <lcwu@google.com>
+	    Mark Wielaard  <mjw@redhat.com>
+
+	* common.opt (Wshadow=global): New option. Default for -Wshadow.
+	(Wshadow=local): New option.
+	(Wshadow-local): Hidden alias for -Wshadow=local.
+	(Wshadow=compatible-local): New option.
+	(Wshadow-compatible-local): Hidden alias for
+	-Wshadow=compatible-local.
+	* doc/invoke.texi: Document Wshadow=global, Wshadow=local and
+	Wshadow=compatible-local.
+
+2016-10-31  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-slp.c (vect_get_and_check_slp_defs): New parameter SWAP.
+	Check slp defs for COND_EXPR by swapping/inverting operands if the
+	new parameter SWAP indicates so.
+	(vect_build_slp_tree_1): New parameter SWAP.  Check COND_EXPR stmt
+	is isomorphic to the first stmt via swapping/inverting.  Store swap
+	information in the new parameter SWAP.
+	(vect_build_slp_tree): New local array SWAP and pass it to function
+	vect_build_slp_tree_1.  Cleanup result handling code for function
+	call to vect_get_and_check_slp_defs.  Skip operand swapping if the
+	order of operands has been fixed as indicated by SWAP[i].
+
+2016-10-31  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-data-refs.c (vect_slp_analyze_node_dependences): Skip
+	unnecessary data dependence check after visited store stmt.
+
 2016-10-30  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	PR tree-optimization/71915
@@ -463,7 +734,7 @@
 
 2016-10-26  Jakub Jelinek  <jakub@redhat.com>
 
-	* gen-pass-instances.awk (adjust_linenos): INcrement pass_lines[p]
+	* gen-pass-instances.awk (adjust_linenos): Increment pass_lines[p]
 	by increment rather than double it.
 	(insert_remove_pass): Strip leading whitespace from args[3].  Don't
 	emit a space before args[4].
